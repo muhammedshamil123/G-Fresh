@@ -30,7 +30,8 @@ func minimumRecolors(blocks string, k int) []int {
 		}
 		fmt.Println(s)
 		counts = append(counts, count)
-		blocks = strings.Replace(blocks, "B", "A", 1)
+		blocks = strings.Replace(blocks, "B", "c", 1)
+		fmt.Println("hi")
 		if count >= len(blocks) {
 			break
 		}
