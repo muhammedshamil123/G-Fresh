@@ -69,6 +69,13 @@ func UserLoginEmail(c *gin.Context) {
 
 	// Check if password matches the username
 	if err := utils.CheckPassword(user.HashedPassword, form.Password); err == nil {
+		if user.Blocked {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"status":  false,
+				"message": "User is blocked",
+			})
+			return
+		}
 		token, err := utils.GenerateToken(user.Email)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Token Generation Failed"})
@@ -78,7 +85,7 @@ func UserLoginEmail(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"status":  true,
 			"message": "User signed in successfully",
-			"token":   USERTOKEN,
+			"welcome": user.Name,
 		})
 	} else {
 		c.JSON(http.StatusUnauthorized, gin.H{

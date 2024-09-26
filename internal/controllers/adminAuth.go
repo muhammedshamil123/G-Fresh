@@ -2,7 +2,6 @@ package controllers
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 
 	"g-fresh/internal/database"
@@ -43,7 +42,6 @@ func AdminLogin(c *gin.Context) {
 	// Check if email exists in the admin table
 	var admin model.Admin
 	if tx := database.DB.Where("Username = ?", form.Username).First(&admin); tx.Error != nil {
-		fmt.Println(tx)
 		if errors.Is(tx.Error, gorm.ErrRecordNotFound) {
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"status":  false,
@@ -70,7 +68,7 @@ func AdminLogin(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"status":  true,
 			"message": "Admin signed in successfully",
-			"token":   ADMINTOKEN,
+			"welcome": admin.Username,
 		})
 	} else {
 		c.JSON(http.StatusUnauthorized, gin.H{
@@ -86,7 +84,7 @@ func AdminAuthorization() gin.HandlerFunc {
 		tokenString := ADMINTOKEN
 
 		if tokenString == "" {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization header required"})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Admin not logged in"})
 			c.Abort()
 			return
 		}
