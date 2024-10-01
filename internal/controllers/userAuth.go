@@ -3,6 +3,8 @@ package controllers
 import (
 	"errors"
 	"fmt"
+	"io"
+	"log"
 	"net/http"
 	"time"
 
@@ -12,9 +14,21 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
+	"github.com/golang-jwt/jwt/v4"
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/google"
 	"gorm.io/gorm"
 )
 
+var googleOauthConfig = &oauth2.Config{
+	RedirectURL:  "http://localhost:8080/auth/google/callback",
+	ClientID:     "561809634466-7789k623dstmaotg90edbil5r07iscl4.apps.googleusercontent.com",
+	ClientSecret: "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",
+	Scopes:       []string{"https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/userinfo.profile"},
+	Endpoint:     google.Endpoint,
+}
+
+var oauthStateString = "randomstate"
 var USERTOKEN, storedOTP string
 var otpTimer time.Time
 var USER model.User
@@ -165,7 +179,7 @@ func UserSignupEmail(c *gin.Context) {
 
 	err = utils.SendEmailOTP(user.Email, otp.OTP)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to send OTP"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to send OTP", "err": err})
 		return
 	}
 
@@ -233,4 +247,84 @@ func ResendOtp(c *gin.Context) {
 	})
 	storedOTP = otp.OTP
 	otpTimer = otp.ExpiryTime
+}
+func UserAuthorization() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		tokenString := USERTOKEN
+
+		if tokenString == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "User not logged in"})
+			c.Abort()
+			return
+		}
+		token, err := jwt.Parse(tokenString, func(t *jwt.Token) (interface{}, error) {
+			if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, errors.New("unexpected signing method")
+			}
+			return jwtSecret, nil
+		})
+		if err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+			c.Abort()
+			return
+		}
+		if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
+			c.Set("username", claims["name"])
+			c.Set("exp", claims["exp"])
+			c.Next()
+		} else {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+			c.Abort()
+			return
+		}
+	}
+}
+func HandleGoogleLoginsbacks(c *gin.Context) {
+	http.HandleFunc("/auth/google/login", HandleGoogleLogin)
+}
+func HandleGoogleCallbacks(c *gin.Context) {
+	http.HandleFunc("/auth/google/callback", HandleGoogleCallback)
+}
+
+// Step 1: Redirect to Google for authentication
+func HandleGoogleLogin(w http.ResponseWriter, r *http.Request) {
+	url := googleOauthConfig.AuthCodeURL(oauthStateString)
+	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
+}
+
+// Step 2: Handle callback from Google
+func HandleGoogleCallback(w http.ResponseWriter, r *http.Request) {
+	state := r.FormValue("state")
+	if state != oauthStateString {
+		log.Printf("Invalid OAuth state")
+		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+		return
+	}
+
+	code := r.FormValue("code")
+	token, err := googleOauthConfig.Exchange(oauth2.NoContext, code)
+	if err != nil {
+		log.Printf("Code exchange failed: %s", err.Error())
+		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+		return
+	}
+
+	// Use the token to get user info
+	response, err := http.Get("https://www.googleapis.com/oauth2/v2/userinfo?access_token=" + token.AccessToken)
+	if err != nil {
+		log.Printf("Error getting user info: %s", err.Error())
+		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+		return
+	}
+	defer response.Body.Close()
+
+	// Read the user's information
+	userInfo, err := io.ReadAll(response.Body)
+	if err != nil {
+		log.Printf("Error reading user info: %s", err.Error())
+		return
+	}
+
+	// Display or store the user information (e.g., email, name)
+	fmt.Fprintf(w, "User Info: %s\n", userInfo)
 }

@@ -39,7 +39,7 @@ func SendEmailOTP(to string, otp string) error {
 	mail.SetBody("text/html", "Your OTP is: "+otp)
 
 	// Set up SMTP server details (Gmail example)
-	dialer := gomail.NewDialer("smtp.gmail.com", 587, "gfreshproject2024@gmail.com", "bwdw legp skup toiq")
+	dialer := gomail.NewDialer("smtp.gmail.com", 587, "gfreshproject2024@gmail.com", "kcdo akqz toit seha")
 
 	// Send the email
 	err := dialer.DialAndSend(mail)

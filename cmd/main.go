@@ -16,6 +16,7 @@ func main() {
 
 	api.AuthenticationRoutes(router)
 	api.AdminRoutes(router)
+	api.UserRoutes(router)
 
 	err := router.Run(":8080")
 	if err != nil {

@@ -15,6 +15,9 @@ func AuthenticationRoutes(router *gin.Engine) {
 	router.POST("/user/signupemail", controllers.UserSignupEmail)
 	router.GET("/user/signupemail/otp/:email/:otp", controllers.OtpVerification)
 	router.POST("/user/signupemail/resendotp", controllers.ResendOtp)
+	router.POST("/auth/google/login", controllers.HandleGoogleLoginsbacks)
+	router.POST("/auth/google/callback", controllers.HandleGoogleCallbacks)
+
 }
 
 func AdminRoutes(router *gin.Engine) {
@@ -23,6 +26,7 @@ func AdminRoutes(router *gin.Engine) {
 	router.PUT("/admin/users/unblock/:userId", controllers.AdminAuthorization(), controllers.UnblockUser)
 
 	router.GET("/admin/categories", controllers.AdminAuthorization(), controllers.GetCategoryList)
+	router.GET("/admin/categories/:id", controllers.AdminAuthorization(), controllers.GetCategory)
 	router.POST("/admin/categories/add", controllers.AdminAuthorization(), controllers.AddCategory)
 	router.DELETE("/admin/categories/delete/:id", controllers.AdminAuthorization(), controllers.DeleteCategory)
 	router.PUT("/admin/categories/edit/:id", controllers.AdminAuthorization(), controllers.EditCategory)
@@ -31,4 +35,10 @@ func AdminRoutes(router *gin.Engine) {
 	router.POST("/admin/products/add", controllers.AdminAuthorization(), controllers.AddProducts)
 	router.DELETE("/admin/products/delete/:id", controllers.AdminAuthorization(), controllers.DeleteProduct)
 	router.PUT("/admin/products/edit/:id", controllers.AdminAuthorization(), controllers.EditProduct)
+}
+
+func UserRoutes(router *gin.Engine) {
+	router.GET("/user/home", controllers.UserAuthorization(), controllers.GetHome)
+	router.GET("/user/category/:id", controllers.UserAuthorization(), controllers.GetCategory)
+	router.GET("/user/product/:id", controllers.UserAuthorization(), controllers.GetProduct)
 }
