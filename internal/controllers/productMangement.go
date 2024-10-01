@@ -152,18 +152,25 @@ func EditProduct(c *gin.Context) {
 	err := Validate.Struct(form)
 	if err != nil {
 		var errs []string
+		var errMsg string
 		for _, e := range err.(validator.ValidationErrors) {
-			errMsg := e.Field() + "_" + e.Tag()
+			errMsg = e.Field() + "_" + e.Tag()
 			if errMsg == "" {
 				errMsg = e.Error()
 			}
 			errs = append(errs, errMsg)
+			if errMsg == "StockLeft_required" {
+				break
+			}
 		}
-		c.JSON(http.StatusBadRequest, gin.H{
-			"status": false,
-			"error":  errs,
-		})
-		return
+		if errMsg != "StockLeft_required" {
+
+			c.JSON(http.StatusBadRequest, gin.H{
+				"status": false,
+				"error":  errs,
+			})
+			return
+		}
 	}
 	product.CategoryID = form.CategoryID
 	product.Name = form.Name

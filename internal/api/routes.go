@@ -15,8 +15,8 @@ func AuthenticationRoutes(router *gin.Engine) {
 	router.POST("/user/signupemail", controllers.UserSignupEmail)
 	router.GET("/user/signupemail/otp/:email/:otp", controllers.OtpVerification)
 	router.POST("/user/signupemail/resendotp", controllers.ResendOtp)
-	router.POST("/auth/google/login", controllers.HandleGoogleLoginsbacks)
-	router.POST("/auth/google/callback", controllers.HandleGoogleCallbacks)
+	router.GET("/auth/google/login", controllers.HandleGoogleLogin)
+	router.GET("/auth/google/callback", controllers.HandleGoogleCallback)
 
 }
 

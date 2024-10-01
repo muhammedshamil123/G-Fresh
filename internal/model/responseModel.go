@@ -4,7 +4,7 @@ type UserResponse struct {
 	ID          uint   `json:"id"`
 	Name        string `json:"name"`
 	Email       string `json:"email"`
-	PhoneNumber uint   `json:"phone_number"`
+	PhoneNumber string `json:"phone_number"`
 	Picture     string `json:"picture"`
 	Blocked     bool   `json:"blocked"`
 }
@@ -44,4 +44,15 @@ type ViewProductList struct {
 	RatingCount   uint    `json:"rating_count"`
 	AverageRating float64 `json:"average_rating"`
 	CategoryName  string  `json:"category_name"`
+}
+
+type GoogleResponse struct {
+	ID            string `json:"id"`
+	Email         string `json:"email"`
+	VerifiedEmail bool   `json:"verified_email"`
+	Name          string `json:"name"`
+	GivenName     string `json:"given_name"`
+	FamilyName    string `json:"family_name"`
+	Picture       string `json:"picture"`
+	Locale        string `json:"locale"`
 }

@@ -1,11 +1,14 @@
 package controllers
 
 import (
+	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"g-fresh/internal/database"
@@ -22,13 +25,13 @@ import (
 
 var googleOauthConfig = &oauth2.Config{
 	RedirectURL:  "http://localhost:8080/auth/google/callback",
-	ClientID:     "561809634466-7789k623dstmaotg90edbil5r07iscl4.apps.googleusercontent.com",
-	ClientSecret: "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",
+	ClientID:     "561809634466-7789k623dstmaotg90edbil5r07iscl4.apps.googleusercontent.com", // Replace with your Google Client ID
+	ClientSecret: "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",                                      // Replace with your Google Client Secret
 	Scopes:       []string{"https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/userinfo.profile"},
 	Endpoint:     google.Endpoint,
 }
 
-var oauthStateString = "randomstate"
+var oauthStateString = "random"
 var USERTOKEN, storedOTP string
 var otpTimer time.Time
 var USER model.User
@@ -279,52 +282,125 @@ func UserAuthorization() gin.HandlerFunc {
 		}
 	}
 }
-func HandleGoogleLoginsbacks(c *gin.Context) {
-	http.HandleFunc("/auth/google/login", HandleGoogleLogin)
-}
-func HandleGoogleCallbacks(c *gin.Context) {
-	http.HandleFunc("/auth/google/callback", HandleGoogleCallback)
-}
 
 // Step 1: Redirect to Google for authentication
-func HandleGoogleLogin(w http.ResponseWriter, r *http.Request) {
+func HandleGoogleLogin(c *gin.Context) {
 	url := googleOauthConfig.AuthCodeURL(oauthStateString)
-	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
+	c.Redirect(http.StatusTemporaryRedirect, url)
 }
 
 // Step 2: Handle callback from Google
-func HandleGoogleCallback(w http.ResponseWriter, r *http.Request) {
-	state := r.FormValue("state")
-	if state != oauthStateString {
-		log.Printf("Invalid OAuth state")
-		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+func HandleGoogleCallback(c *gin.Context) {
+	fmt.Println("Starting to handle callback")
+	fmt.Printf("Callback URL Params: %v\n", c.Request.URL.Query())
+
+	//code := c.Query("code")
+	code := strings.TrimSpace(c.Query("code"))
+
+	if code == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status":  "failed",
+			"message": "missing code parameter",
+		})
 		return
 	}
-
-	code := r.FormValue("code")
-	token, err := googleOauthConfig.Exchange(oauth2.NoContext, code)
+	// Exchange code for token
+	token, err := googleOauthConfig.Exchange(context.Background(), code)
 	if err != nil {
-		log.Printf("Code exchange failed: %s", err.Error())
-		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+		log.Printf("Token Exchange Error: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status":  "failed",
+			"message": "failed to exchange token",
+		})
 		return
 	}
 
-	// Use the token to get user info
+	// Use access token to get user info
 	response, err := http.Get("https://www.googleapis.com/oauth2/v2/userinfo?access_token=" + token.AccessToken)
 	if err != nil {
-		log.Printf("Error getting user info: %s", err.Error())
-		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status":  "failed",
+			"message": "failed to get user information",
+		})
 		return
 	}
+
 	defer response.Body.Close()
 
-	// Read the user's information
-	userInfo, err := io.ReadAll(response.Body)
+	// Read response body
+	content, err := io.ReadAll(response.Body)
 	if err != nil {
-		log.Printf("Error reading user info: %s", err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status":  "failed",
+			"message": "failed to read user information",
+		})
+		return
+	}
+	fmt.Println("got response")
+	// Parse the Google user information
+	var googleUser model.GoogleResponse
+	err = json.Unmarshal(content, &googleUser)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status":  "failed",
+			"message": "failed to parse user information",
+		})
 		return
 	}
 
-	// Display or store the user information (e.g., email, name)
-	fmt.Fprintf(w, "User Info: %s\n", userInfo)
+	// Check if the user already exists in the database
+	var existingUser model.User
+	if err := database.DB.Where("email = ?", googleUser.Email).First(&existingUser).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			// Create a new user if not found
+			newUser := model.User{
+				Email:   googleUser.Email,
+				Name:    googleUser.Name,
+				Picture: googleUser.Picture,
+			}
+			if err := database.DB.Create(&newUser).Error; err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{
+					"status":  "failed",
+					"message": "failed to create new user",
+				})
+				return
+			}
+			existingUser = newUser // Assign the newly created user to existingUser for later token generation
+		} else {
+			// Some other error occurred
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"status":  "failed",
+				"message": "failed to fetch user from database",
+			})
+			return
+		}
+	}
+
+	// Check if the user is blocked or needs to login with another method
+	if existingUser.Blocked {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"status":  "failed",
+			"message": "user is unauthorized to access",
+		})
+		return
+	}
+
+	// Generate JWT using userID
+	tokenstring, err := utils.GenerateToken(existingUser.Email)
+	if tokenstring == "" || err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"status":  "failed",
+			"message": "failed to create authorization token",
+		})
+		return
+	}
+	USERTOKEN = tokenstring
+	// Return success response with JWT and user info
+	c.JSON(http.StatusOK, gin.H{
+		"status":  "success",
+		"message": "login successful",
+		"data": gin.H{
+			"user": existingUser,
+		},
+	})
 }
