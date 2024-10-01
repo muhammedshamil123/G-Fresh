@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -25,13 +26,13 @@ import (
 
 var googleOauthConfig = &oauth2.Config{
 	RedirectURL:  "http://localhost:8080/auth/google/callback",
-	ClientID:     "561809634466-7789k623dstmaotg90edbil5r07iscl4.apps.googleusercontent.com", // Replace with your Google Client ID
-	ClientSecret: "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",                                      // Replace with your Google Client Secret
+	ClientID:     os.Getenv("ClientID"),
+	ClientSecret: os.Getenv("ClientSecret"),
 	Scopes:       []string{"https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/userinfo.profile"},
 	Endpoint:     google.Endpoint,
 }
 
-var oauthStateString = "random"
+var oauthStateString = os.Getenv("oauthStateString")
 var USERTOKEN, storedOTP string
 var otpTimer time.Time
 var USER model.User
@@ -399,8 +400,5 @@ func HandleGoogleCallback(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"status":  "success",
 		"message": "login successful",
-		"data": gin.H{
-			"user": existingUser,
-		},
 	})
 }
