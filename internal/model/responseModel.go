@@ -46,6 +46,14 @@ type ViewProductList struct {
 	CategoryName  string  `json:"category_name"`
 }
 
+type ViewCartList struct {
+	Name        string  `json:"name"`
+	Description string  `json:"description"`
+	Price       float64 `json:"price"`
+	OfferAmount float64 `json:"offer_amount"`
+	StockLeft   uint    `json:"stock_left"`
+}
+
 type GoogleResponse struct {
 	ID            string `json:"id"`
 	Email         string `json:"email"`

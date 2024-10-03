@@ -29,3 +29,24 @@ type AddProductsRequest struct {
 	OfferAmount float64 `json:"offeramount"`
 	StockLeft   uint    `validate:"required,number" json:"stockleft"`
 }
+
+type AddAddressRequest struct {
+	PhoneNumber  uint   `validate:"number,min=1000000000,max=9999999999" json:"phonenumber"`
+	StreetName   string `validate:"required" json:"streetname"`
+	StreetNumber string `validate:"required" json:"streetnumber"`
+	City         string `validate:"required" json:"city"`
+	State        string `validate:"required" json:"state"`
+	PostalCode   string `validate:"required" json:"postalcode"`
+}
+type ProfileEdit struct {
+	Name        string `validate:"required" json:"name"`
+	Email       string `validate:"required" json:"email"`
+	PhoneNumber string `validate:"required" json:"phonenumber"`
+	Picture     string `validate:"required" json:"picture"`
+}
+
+type ChangePasswordRequest struct {
+	OldPassword     string `validate:"required" json:"oldpassword"`
+	Password        string `validate:"required" json:"password"`
+	ConfirmPassword string `validate:"required" json:"confirmpassword"`
+}
