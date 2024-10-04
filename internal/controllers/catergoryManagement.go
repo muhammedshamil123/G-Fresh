@@ -14,8 +14,13 @@ func GetCategoryList(c *gin.Context) {
 	tx := database.DB.Model(&model.Category{}).Select("id, name, description, image_url").Find(&categorylist)
 	if tx.Error != nil {
 		c.JSON(http.StatusNotFound, gin.H{
-			"status":  false,
 			"message": "failed to retrieve data from the database, or the data doesn't exist",
+		})
+		return
+	}
+	if len(categorylist) < 1 {
+		c.JSON(http.StatusNotFound, gin.H{
+			"message": "Category doesn't exist",
 		})
 		return
 	}
@@ -101,16 +106,20 @@ func DeleteCategory(c *gin.Context) {
 	tx := database.DB.Where("id = ?", catid).Delete(&model.Category{})
 	if tx.Error != nil {
 		c.JSON(http.StatusNotFound, gin.H{
-			"status":  false,
 			"message": "Deletion failed!",
 			"error":   tx.Error,
 		})
 		return
 	}
+	if tx := database.DB.Model(&model.Product{}).Where("category_id", catid).Update("category_id", nil); tx.Error != nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"message": "Product category updation failed!",
+			"error":   tx.Error,
+		})
+		return
+	}
 	c.JSON(http.StatusOK, gin.H{
-		"status":        true,
-		"message":       "Category deleted",
-		"rows affected": tx.RowsAffected,
+		"message": "Category deleted",
 	})
 
 }

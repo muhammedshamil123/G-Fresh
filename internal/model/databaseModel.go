@@ -64,22 +64,30 @@ type CartItems struct {
 }
 
 type Order struct {
-	OrderID       string    `validate:"required" json:"order_id"`
-	UserID        uint      `validate:"required,number" json:"user_id"`
-	AddressID     uint      `validate:"required,number" json:"address_id"`
-	ItemCount     uint      `json:"item_count"`
-	TotalAmount   float64   `validate:"required,number" json:"total_amount"`
-	PaymentMethod string    `validate:"required" json:"payment_method" gorm:"column:payment_method"`
-	PaymentStatus string    `validate:"required" json:"payment_status" gorm:"column:payment_status"`
-	OrderedAt     time.Time `gorm:"autoCreateTime" json:"ordered_at"`
+	OrderID         uint            `json:"order_id" gorm:"autoCreateTime"`
+	UserID          uint            `validate:"required,number" json:"user_id"`
+	ShippingAddress ShippingAddress `gorm:"embedded" json:"shippingAddress"`
+	ItemCount       uint            `json:"item_count"`
+	TotalAmount     float64         `validate:"required,number" json:"total_amount"`
+	PaymentMethod   string          `validate:"required" json:"payment_method" gorm:"column:payment_method"`
+	PaymentStatus   string          `validate:"required" json:"payment_status" gorm:"column:payment_status"`
+	OrderedAt       time.Time       `gorm:"autoCreateTime" json:"ordered_at"`
 }
 
 type OrderItem struct {
-	OrderID            string  `validate:"required" csv:"OrderID" json:"order_id"`
-	UserID             uint    `validate:"required,number" json:"user_id" csv:"UserID"`
-	ProductID          uint    `validate:"required,number" json:"product_id" csv:"ProductID"`
-	Quantity           uint    `validate:"required,number" json:"quantity" csv:"Quantity"`
-	Amount             float64 `validate:"required,number" json:"amount" csv:"Amount"`
-	ProductOfferAmount float64 `json:"product_offer_amount" csv:"ProductOfferAmount"`
-	OrderStatus        string  `json:"order_status" gorm:"column:order_status" csv:"OrderStatus"`
+	OrderID     uint    `validate:"required" json:"order_id"`
+	UserID      uint    `validate:"required,number" json:"user_id" `
+	ProductID   uint    `validate:"required,number" json:"product_id"`
+	Quantity    uint    `validate:"required,number" json:"quantity"`
+	Amount      float64 `validate:"required,number" json:"amount"`
+	OrderStatus string  `json:"order_status" gorm:"column:order_status"`
+}
+
+type ShippingAddress struct {
+	PhoneNumber  uint   `gorm:"column:phone_number" validate:"number,min=1000000000,max=9999999999" json:"phone_number"`
+	StreetName   string `gorm:"type:varchar(255)" json:"street_name"`
+	StreetNumber string `gorm:"type:varchar(255)" json:"street_number"`
+	City         string `gorm:"type:varchar(255)" json:"city"`
+	State        string `gorm:"type:varchar(255)" json:"state"`
+	PinCode      string `gorm:"type:varchar(20)" json:"pincode"`
 }

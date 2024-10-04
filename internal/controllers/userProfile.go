@@ -38,7 +38,6 @@ func ShowProfile(c *gin.Context) {
 
 func ShowAddress(c *gin.Context) {
 
-	// database.DB.AutoMigrate(&model.Address{})
 	var userId model.User
 	var address []model.Address
 

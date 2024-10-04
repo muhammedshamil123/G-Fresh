@@ -1,5 +1,7 @@
 package model
 
+import "time"
+
 type UserResponse struct {
 	ID          uint   `json:"id"`
 	Name        string `json:"name"`
@@ -63,4 +65,37 @@ type GoogleResponse struct {
 	FamilyName    string `json:"family_name"`
 	Picture       string `json:"picture"`
 	Locale        string `json:"locale"`
+}
+
+type OrderResponce struct {
+	OrderID       uint      `json:"order_id"`
+	ItemCount     uint      `json:"item_count"`
+	TotalAmount   float64   `json:"total_amount"`
+	PaymentMethod string    `json:"payment_method"`
+	PaymentStatus string    `json:"payment_status"`
+	OrderedAt     time.Time `json:"ordered_at"`
+}
+
+type OrderItemResponse struct {
+	ProductID   uint    `json:"product_id"`
+	Quantity    uint    `json:"quantity"`
+	Amount      float64 `json:"amount"`
+	OrderStatus string  `json:"order_status"`
+}
+
+type ShippingAddressResponse struct {
+	PhoneNumber  uint   `json:"phone_number"`
+	StreetName   string `json:"street_name"`
+	StreetNumber string `json:"street_number"`
+	City         string `json:"city"`
+	State        string `json:"state"`
+	PinCode      string `json:"pincode"`
+}
+
+type ViewOrderProductList struct {
+	Name        string  `json:"name"`
+	Description string  `json:"description"`
+	ImageURL    string  `json:"image_url"`
+	Price       float64 `json:"price"`
+	OfferAmount float64 `json:"offer_amount"`
 }

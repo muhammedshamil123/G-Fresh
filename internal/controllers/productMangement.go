@@ -15,14 +15,19 @@ func GetProductList(c *gin.Context) {
 	tx := database.DB.Model(&model.Product{}).Select("id, category_id, name, description, image_url,price,offer_amount,stock_left,rating_count,average_rating").Find(&productlist)
 	if tx.Error != nil {
 		c.JSON(http.StatusNotFound, gin.H{
-			"status":  false,
 			"message": "failed to retrieve data from the database, or the data doesn't exist",
+		})
+		return
+	}
+	if len(productlist) < 1 {
+		c.JSON(http.StatusNotFound, gin.H{
+			"message": "Products empty",
 		})
 		return
 	}
 	for _, val := range productlist {
 		c.JSON(http.StatusOK, gin.H{
-			"category": val,
+			"product": val,
 		})
 	}
 	return
@@ -30,6 +35,7 @@ func GetProductList(c *gin.Context) {
 
 func AddProducts(c *gin.Context) {
 	// database.DB.AutoMigrate(&model.Product{})
+
 	var product model.AddProductsRequest
 	if err := c.BindJSON(&product); err != nil {
 
@@ -66,7 +72,13 @@ func AddProducts(c *gin.Context) {
 		})
 		return
 	}
-
+	var cat model.Category
+	if tx := database.DB.Model(&model.Category{}).Where("id", product.CategoryID).First(&cat); tx.Error != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"message": "Category does not exist!",
+		})
+		return
+	}
 	prod := model.Product{
 		CategoryID:    product.CategoryID,
 		Name:          product.Name,

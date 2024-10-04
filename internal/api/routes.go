@@ -38,6 +38,11 @@ func AdminRoutes(router *gin.Engine) {
 	router.POST("/admin/products/add", controllers.AdminAuthorization(), controllers.AddProducts)
 	router.DELETE("/admin/products/delete/:id", controllers.AdminAuthorization(), controllers.DeleteProduct)
 	router.PUT("/admin/products/edit/:id", controllers.AdminAuthorization(), controllers.EditProduct)
+
+	//orders
+	router.GET("/admin/orders", controllers.AdminAuthorization(), controllers.ShowOrdersAdmin)
+	router.PATCH("/admin/orders/cancel/:pid/:orderid", controllers.AdminAuthorization(), controllers.CancelOrdersAdmin)
+	router.PATCH("/admin/orders/status/:pid/:orderid", controllers.AdminAuthorization(), controllers.ChangeStatus)
 }
 
 func UserRoutes(router *gin.Engine) {
@@ -72,4 +77,9 @@ func UserRoutes(router *gin.Engine) {
 	router.GET("/user/products/new", controllers.UserAuthorization(), controllers.SearchNew)
 	router.GET("/user/products/AtoZ", controllers.UserAuthorization(), controllers.SearchAtoZ)
 	router.GET("/user/products/ZtoA", controllers.UserAuthorization(), controllers.SearchZtoA)
+
+	//order
+	router.GET("/user/order", controllers.UserAuthorization(), controllers.ShowOrders)
+	router.POST("/user/order/:aid", controllers.UserAuthorization(), controllers.AddOrder)
+	router.PATCH("/user/order/cancel/:pid/:orderid", controllers.UserAuthorization(), controllers.CancelOrders)
 }

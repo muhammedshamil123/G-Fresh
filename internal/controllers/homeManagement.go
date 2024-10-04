@@ -20,6 +20,11 @@ func GetHome(c *gin.Context) {
 		})
 		return
 	}
+	if len(categories) < 1 {
+		c.JSON(http.StatusOK, gin.H{
+			"category": "empty",
+		})
+	}
 	for _, val := range categories {
 		c.JSON(http.StatusOK, gin.H{
 			"category": val,
@@ -34,10 +39,22 @@ func GetHome(c *gin.Context) {
 		})
 		return
 	}
-	for _, val := range products {
+	if len(products) < 1 {
 		c.JSON(http.StatusOK, gin.H{
-			"products": val,
+			"products": "empty",
 		})
+	}
+	for _, val := range products {
+		if val.StockLeft < 1 {
+			c.JSON(http.StatusOK, gin.H{
+				"products": val,
+				"status":   "out of stock",
+			})
+		} else {
+			c.JSON(http.StatusOK, gin.H{
+				"products": val,
+			})
+		}
 	}
 }
 func GetCategory(c *gin.Context) {
@@ -52,7 +69,7 @@ func GetCategory(c *gin.Context) {
 		})
 		return
 	}
-	tx := database.DB.Model(&model.Product{}).Select("name, description, image_url,price,offer_amount,stock_left,rating_count,average_rating").Where("category_id = ?", catid).Find(&products)
+	tx := database.DB.Model(&model.Product{}).Select("products.name, products.description, products.image_url,price,offer_amount,stock_left,rating_count,average_rating,categories.name AS category_name").Joins("JOIN categories ON categories.id=products.category_id").Where("category_id = ?", catid).Find(&products)
 	if tx.Error != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"status":  false,
@@ -60,8 +77,8 @@ func GetCategory(c *gin.Context) {
 		})
 		return
 	}
-	if len(products) == 0 {
-		c.JSON(http.StatusNoContent, gin.H{
+	if len(products) < 1 {
+		c.JSON(http.StatusNotFound, gin.H{
 			"products": "No Products",
 		})
 		return
@@ -77,10 +94,15 @@ func GetProduct(c *gin.Context) {
 	prodid := c.Query("id")
 	var products model.ViewProductList
 
-	tx := database.DB.Model(&model.Product{}).Select("name, description, image_url,price,offer_amount,stock_left,rating_count,average_rating").Where("id = ?", prodid).Find(&products)
+	tx := database.DB.Model(&model.Product{}).Select("products.name, products.description, products.image_url,price,offer_amount,stock_left,rating_count,average_rating,categories.name AS category_name").Joins("JOIN categories ON categories.id=products.category_id").Where("products.id = ?", prodid).Find(&products)
 	if tx.Error != nil {
 		c.JSON(http.StatusNotFound, gin.H{
-			"status":  false,
+			"message": "Product with this id does not exist!!",
+		})
+		return
+	}
+	if products.Name == "" {
+		c.JSON(http.StatusNotFound, gin.H{
 			"message": "Product with this id does not exist!!",
 		})
 		return
