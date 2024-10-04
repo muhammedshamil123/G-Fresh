@@ -201,3 +201,20 @@ func SearchZtoA(c *gin.Context) {
 		})
 	}
 }
+
+func SearchAverageRating(c *gin.Context) {
+	var products []model.ViewProductList
+	ty := database.DB.Model(&model.Product{}).Select("products.name, products.description, products.image_url,price,offer_amount,stock_left,rating_count,average_rating,categories.name AS category_name").Joins("JOIN categories ON categories.id=products.category_id").Order("average_rating DESC").Find(&products)
+	if ty.Error != nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"message": "failed to retrieve data from the products database, or the data doesn't exist",
+			"error":   ty.Error,
+		})
+		return
+	}
+	for _, val := range products {
+		c.JSON(http.StatusOK, gin.H{
+			"products": val,
+		})
+	}
+}

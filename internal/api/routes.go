@@ -77,6 +77,7 @@ func UserRoutes(router *gin.Engine) {
 	router.GET("/user/products/new", controllers.UserAuthorization(), controllers.SearchNew)
 	router.GET("/user/products/AtoZ", controllers.UserAuthorization(), controllers.SearchAtoZ)
 	router.GET("/user/products/ZtoA", controllers.UserAuthorization(), controllers.SearchZtoA)
+	router.GET("/user/products/rating", controllers.UserAuthorization(), controllers.SearchAverageRating)
 
 	//order
 	router.GET("/user/order", controllers.UserAuthorization(), controllers.ShowOrders)
