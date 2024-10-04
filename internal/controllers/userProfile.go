@@ -18,7 +18,6 @@ func ShowProfile(c *gin.Context) {
 
 	if !exist {
 		c.JSON(http.StatusNotFound, gin.H{
-			"status":  false,
 			"message": "failed to retrieve data from the database, or the data doesn't exist",
 		})
 		return
@@ -26,7 +25,6 @@ func ShowProfile(c *gin.Context) {
 
 	if tx := database.DB.Model(&model.User{}).Select("id, name, email, phone_number,picture,blocked").Where("email = ?", user).First(&userDetails); tx.Error != nil {
 		c.JSON(http.StatusNotFound, gin.H{
-			"status":  false,
 			"message": "User does not exists!",
 		})
 		return
@@ -45,7 +43,6 @@ func ShowAddress(c *gin.Context) {
 
 	if !exist {
 		c.JSON(http.StatusNotFound, gin.H{
-			"status":  false,
 			"message": "failed to retrieve data from the database, or the data doesn't exist",
 		})
 		return
@@ -53,14 +50,12 @@ func ShowAddress(c *gin.Context) {
 
 	if tx := database.DB.Model(&model.User{}).Where("email = ?", user).First(&userId); tx.Error != nil {
 		c.JSON(http.StatusNotFound, gin.H{
-			"status":  false,
 			"message": "User does not exists!",
 		})
 		return
 	}
 	if tx := database.DB.Model(&model.Address{}).Where("user_id = ?", userId.ID).Find(&address); tx.Error != nil {
 		c.JSON(http.StatusNotFound, gin.H{
-			"status":  false,
 			"message": "address does not exists!",
 		})
 		return
@@ -79,7 +74,6 @@ func EditProfile(c *gin.Context) {
 
 	if !exist {
 		c.JSON(http.StatusNotFound, gin.H{
-			"status":  false,
 			"message": "failed to retrieve data from the database, or the data doesn't exist",
 		})
 		return
@@ -87,7 +81,6 @@ func EditProfile(c *gin.Context) {
 
 	if tx := database.DB.Model(&model.User{}).Where("email = ?", email).First(&user); tx.Error != nil {
 		c.JSON(http.StatusNotFound, gin.H{
-			"status":  false,
 			"message": "User does not exists!",
 		})
 		return
@@ -96,7 +89,6 @@ func EditProfile(c *gin.Context) {
 	if err := c.BindJSON(&userDetails); err != nil {
 
 		c.JSON(http.StatusBadRequest, gin.H{
-			"status":  false,
 			"message": "Failed to process the incoming request",
 			"err":     err,
 		})
@@ -115,8 +107,7 @@ func EditProfile(c *gin.Context) {
 			errs = append(errs, errMsg)
 		}
 		c.JSON(http.StatusBadRequest, gin.H{
-			"status": false,
-			"error":  errs,
+			"error": errs,
 		})
 		return
 	}
@@ -154,7 +145,6 @@ func ChangePassword(c *gin.Context) {
 
 	if !exist {
 		c.JSON(http.StatusNotFound, gin.H{
-			"status":  false,
 			"message": "failed to retrieve data from the database, or the data doesn't exist",
 		})
 		return
@@ -162,7 +152,6 @@ func ChangePassword(c *gin.Context) {
 
 	if tx := database.DB.Model(&model.User{}).Where("email = ?", email).First(&user); tx.Error != nil {
 		c.JSON(http.StatusNotFound, gin.H{
-			"status":  false,
 			"message": "User does not exists!",
 		})
 		return
@@ -171,7 +160,6 @@ func ChangePassword(c *gin.Context) {
 	if err := c.BindJSON(&form); err != nil {
 
 		c.JSON(http.StatusBadRequest, gin.H{
-			"status":  false,
 			"message": "Failed to process the incoming request",
 			"err":     err,
 		})
@@ -190,8 +178,7 @@ func ChangePassword(c *gin.Context) {
 			errs = append(errs, errMsg)
 		}
 		c.JSON(http.StatusBadRequest, gin.H{
-			"status": false,
-			"error":  errs,
+			"error": errs,
 		})
 		return
 	}
@@ -230,7 +217,6 @@ func ShowCart(c *gin.Context) {
 
 	if !exist {
 		c.JSON(http.StatusNotFound, gin.H{
-			"status":  false,
 			"message": "failed to retrieve data from the database, or the data doesn't exist",
 		})
 		return
@@ -238,7 +224,6 @@ func ShowCart(c *gin.Context) {
 
 	if tx := database.DB.Model(&model.User{}).Where("email = ?", email).First(&user); tx.Error != nil {
 		c.JSON(http.StatusNotFound, gin.H{
-			"status":  false,
 			"message": "User does not exists!",
 		})
 		return
@@ -246,7 +231,6 @@ func ShowCart(c *gin.Context) {
 
 	if tx := database.DB.Model(&model.CartItems{}).Where("user_id=?", user.ID).Find(&cartItems); tx.Error != nil {
 		c.JSON(http.StatusNotFound, gin.H{
-			"status":  false,
 			"message": "Cart items does not exists!",
 		})
 		return

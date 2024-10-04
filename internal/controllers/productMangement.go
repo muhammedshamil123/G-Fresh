@@ -40,7 +40,6 @@ func AddProducts(c *gin.Context) {
 	if err := c.BindJSON(&product); err != nil {
 
 		c.JSON(http.StatusBadRequest, gin.H{
-			"status":  false,
 			"message": "Failed to process the incoming request",
 		})
 		return
@@ -58,8 +57,7 @@ func AddProducts(c *gin.Context) {
 			errs = append(errs, errMsg)
 		}
 		c.JSON(http.StatusBadRequest, gin.H{
-			"status": false,
-			"error":  errs,
+			"error": errs,
 		})
 		return
 	}
@@ -67,7 +65,6 @@ func AddProducts(c *gin.Context) {
 	var existingProd model.Product
 	if tx := database.DB.Where("name = ?", product.Name).First(&existingProd); tx.Error == nil {
 		c.JSON(http.StatusUnauthorized, gin.H{
-			"status":  false,
 			"message": "Product with same name exists!",
 		})
 		return
@@ -95,14 +92,12 @@ func AddProducts(c *gin.Context) {
 	result := database.DB.Create(&prod)
 	if result.Error != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{
-			"status":  false,
 			"message": "Error creating Product",
 			"error":   result.Error,
 		})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
-		"status":  true,
 		"message": "Product created Created!!",
 		"Name":    prod.Name,
 		"Id":      prod.ID,
@@ -115,7 +110,6 @@ func DeleteProduct(c *gin.Context) {
 	var product model.Product
 	if tx := database.DB.Where("id = ?", proid).First(&product); tx.Error != nil {
 		c.JSON(http.StatusNotFound, gin.H{
-			"status":  false,
 			"message": "Product id does not exists!",
 		})
 		return
@@ -123,14 +117,12 @@ func DeleteProduct(c *gin.Context) {
 	tx := database.DB.Where("id = ?", proid).Delete(&model.Product{})
 	if tx.Error != nil {
 		c.JSON(http.StatusNotFound, gin.H{
-			"status":  false,
 			"message": "Deletion failed!",
 			"error":   tx.Error,
 		})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
-		"status":        true,
 		"message":       "Product deleted",
 		"rows affected": tx.RowsAffected,
 	})
@@ -145,7 +137,6 @@ func EditProduct(c *gin.Context) {
 
 	if tx := database.DB.Where("id = ?", prodid).First(&product); tx.Error != nil {
 		c.JSON(http.StatusNotFound, gin.H{
-			"status":  false,
 			"message": "Product id does not exists!",
 		})
 		return
@@ -154,7 +145,6 @@ func EditProduct(c *gin.Context) {
 	if err := c.BindJSON(&form); err != nil {
 
 		c.JSON(http.StatusBadRequest, gin.H{
-			"status":  false,
 			"message": "Failed to process the incoming request",
 		})
 		return
@@ -178,8 +168,7 @@ func EditProduct(c *gin.Context) {
 		if errMsg != "StockLeft_required" {
 
 			c.JSON(http.StatusBadRequest, gin.H{
-				"status": false,
-				"error":  errs,
+				"error": errs,
 			})
 			return
 		}
@@ -195,14 +184,12 @@ func EditProduct(c *gin.Context) {
 	tx := database.DB.Save(&product)
 	if tx.Error != nil {
 		c.JSON(http.StatusNotFound, gin.H{
-			"status":  false,
 			"message": "Updation failed!",
 			"error":   tx.Error,
 		})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
-		"status":  true,
 		"message": "Product updated",
 		"product": product.Name,
 	})

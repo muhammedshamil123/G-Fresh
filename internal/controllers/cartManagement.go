@@ -19,7 +19,6 @@ func AddToCart(c *gin.Context) {
 
 	if !exist {
 		c.JSON(http.StatusNotFound, gin.H{
-			"status":  false,
 			"message": "failed to retrieve data from the database, or the data doesn't exist",
 		})
 		return
@@ -27,7 +26,6 @@ func AddToCart(c *gin.Context) {
 
 	if tx := database.DB.Model(&model.User{}).Where("email = ?", user).First(&userId); tx.Error != nil {
 		c.JSON(http.StatusNotFound, gin.H{
-			"status":  false,
 			"message": "User does not exists!",
 		})
 		return
@@ -40,7 +38,6 @@ func AddToCart(c *gin.Context) {
 
 	if tx := database.DB.Where("id = ?", prodid).First(&product); tx.Error != nil {
 		c.JSON(http.StatusNotFound, gin.H{
-			"status":  false,
 			"message": "Product id does not exists!",
 		})
 		return
@@ -48,14 +45,12 @@ func AddToCart(c *gin.Context) {
 
 	if product.StockLeft < uint(qty) {
 		c.JSON(http.StatusNotFound, gin.H{
-			"status":  false,
 			"message": "Insufficient Quantity!",
 		})
 		return
 	}
 	if 1 > uint(qty) {
 		c.JSON(http.StatusNotFound, gin.H{
-			"status":  false,
 			"message": "Min Quantity Required!",
 		})
 		return
@@ -63,7 +58,6 @@ func AddToCart(c *gin.Context) {
 
 	if 10 < uint(qty) {
 		c.JSON(http.StatusNotFound, gin.H{
-			"status":  false,
 			"message": "Max quantity exceeded!",
 		})
 		return
@@ -73,7 +67,6 @@ func AddToCart(c *gin.Context) {
 		cart.Quantity++
 		if 10 < cart.Quantity {
 			c.JSON(http.StatusNotFound, gin.H{
-				"status":  false,
 				"message": "Max quantity exceeded!",
 			})
 			return
@@ -116,7 +109,6 @@ func DeleteFromCart(c *gin.Context) {
 
 	if !exist {
 		c.JSON(http.StatusNotFound, gin.H{
-			"status":  false,
 			"message": "failed to retrieve data from the database, or the data doesn't exist",
 		})
 		return
@@ -124,7 +116,6 @@ func DeleteFromCart(c *gin.Context) {
 
 	if tx := database.DB.Model(&model.User{}).Where("email = ?", user).First(&userId); tx.Error != nil {
 		c.JSON(http.StatusNotFound, gin.H{
-			"status":  false,
 			"message": "User does not exists!",
 		})
 		return
@@ -136,21 +127,18 @@ func DeleteFromCart(c *gin.Context) {
 
 	if tx := database.DB.Where("id = ?", prodid).First(&product); tx.Error != nil {
 		c.JSON(http.StatusNotFound, gin.H{
-			"status":  false,
 			"message": "Product id does not exists!",
 		})
 		return
 	}
 	if tx := database.DB.Model(&model.CartItems{}).Where("product_id = ? AND user_id = ?", prodid, userId.ID).First(&cart); tx.Error != nil {
 		c.JSON(http.StatusNotFound, gin.H{
-			"status":  false,
 			"message": "Cart item does not exists!",
 		})
 		return
 	}
 	if tx := database.DB.Where("user_id=? AND product_id=?", cart.UserID, cart.ProductID).Delete(&model.CartItems{}); tx.Error != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"status":  false,
 			"message": "Deletion Failed!",
 		})
 		return

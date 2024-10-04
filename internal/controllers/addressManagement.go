@@ -41,7 +41,6 @@ func AddAddress(c *gin.Context) {
 	if err := c.BindJSON(&newadd); err != nil {
 
 		c.JSON(http.StatusBadRequest, gin.H{
-			"status":  false,
 			"message": "Failed to process the incoming request",
 			"err":     err,
 		})
@@ -60,8 +59,7 @@ func AddAddress(c *gin.Context) {
 			errs = append(errs, errMsg)
 		}
 		c.JSON(http.StatusBadRequest, gin.H{
-			"status": false,
-			"error":  errs,
+			"error": errs,
 		})
 		return
 	}
@@ -121,7 +119,6 @@ func EditAddress(c *gin.Context) {
 
 	if tx := database.DB.Where("address_id = ?", catid).First(&address); tx.Error != nil {
 		c.JSON(http.StatusNotFound, gin.H{
-			"status":  false,
 			"message": "Address id does not exists!",
 		})
 		return
@@ -130,7 +127,6 @@ func EditAddress(c *gin.Context) {
 	if err := c.BindJSON(&form); err != nil {
 
 		c.JSON(http.StatusBadRequest, gin.H{
-			"status":  false,
 			"message": "Failed to process the incoming request",
 		})
 		return
@@ -148,8 +144,7 @@ func EditAddress(c *gin.Context) {
 			errs = append(errs, errMsg)
 		}
 		c.JSON(http.StatusBadRequest, gin.H{
-			"status": false,
-			"error":  errs,
+			"error": errs,
 		})
 		return
 	}

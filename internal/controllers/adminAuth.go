@@ -25,7 +25,6 @@ func AdminLogin(c *gin.Context) {
 	fmt.Println(jwtSecret)
 	if err := c.BindJSON(&form); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"status":  false,
 			"message": "Failed to process the incoming request",
 		})
 		return
@@ -35,7 +34,6 @@ func AdminLogin(c *gin.Context) {
 	err := Validate.Struct(form)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"status":  false,
 			"message": "username & password required",
 		})
 		return
@@ -46,13 +44,11 @@ func AdminLogin(c *gin.Context) {
 	if tx := database.DB.Where("Username = ?", form.Username).First(&admin); tx.Error != nil {
 		if errors.Is(tx.Error, gorm.ErrRecordNotFound) {
 			c.JSON(http.StatusUnauthorized, gin.H{
-				"status":  false,
 				"message": "Username not present in the admin table",
 			})
 			return
 		} else {
 			c.JSON(http.StatusInternalServerError, gin.H{
-				"status":  false,
 				"message": "Database error",
 			})
 			return
@@ -68,13 +64,11 @@ func AdminLogin(c *gin.Context) {
 		}
 		ADMINTOKEN = token
 		c.JSON(http.StatusOK, gin.H{
-			"status":  true,
 			"message": "Admin signed in successfully",
 			"welcome": admin.Username,
 		})
 	} else {
 		c.JSON(http.StatusUnauthorized, gin.H{
-			"status":  false,
 			"message": "Password does not match",
 		})
 		return

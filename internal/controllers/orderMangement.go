@@ -23,14 +23,12 @@ func AddOrder(c *gin.Context) {
 
 	if !exist {
 		c.JSON(http.StatusNotFound, gin.H{
-			"status":  false,
 			"message": "failed to retrieve data from the database, or the data doesn't exist",
 		})
 		return
 	}
 	if tx := database.DB.Model(&model.User{}).Select("id").Where("email = ?", user).First(&userId); tx.Error != nil {
 		c.JSON(http.StatusNotFound, gin.H{
-			"status":  false,
 			"message": "User does not exists!",
 		})
 		return

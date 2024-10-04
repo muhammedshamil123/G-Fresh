@@ -82,4 +82,7 @@ func UserRoutes(router *gin.Engine) {
 	router.GET("/user/order", controllers.UserAuthorization(), controllers.ShowOrders)
 	router.POST("/user/order/:aid", controllers.UserAuthorization(), controllers.AddOrder)
 	router.PATCH("/user/order/cancel/:pid/:orderid", controllers.UserAuthorization(), controllers.CancelOrders)
+
+	//rating
+	router.POST("/user/rating/:pid/:rating", controllers.UserAuthorization(), controllers.AddRating)
 }

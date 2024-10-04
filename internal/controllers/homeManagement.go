@@ -15,7 +15,6 @@ func GetHome(c *gin.Context) {
 	tx := database.DB.Model(&model.Category{}).Select("id, name, description, image_url").Find(&categories)
 	if tx.Error != nil {
 		c.JSON(http.StatusNotFound, gin.H{
-			"status":  false,
 			"message": "failed to retrieve data from the category database, or the data doesn't exist",
 		})
 		return
@@ -33,7 +32,6 @@ func GetHome(c *gin.Context) {
 	ty := database.DB.Model(&model.Product{}).Select("products.name, products.description, products.image_url,price,offer_amount,stock_left,rating_count,average_rating,categories.name AS category_name").Joins("JOIN categories ON categories.id=products.category_id").Find(&products)
 	if ty.Error != nil {
 		c.JSON(http.StatusNotFound, gin.H{
-			"status":  false,
 			"message": "failed to retrieve data from the products database, or the data doesn't exist",
 			"error":   ty.Error,
 		})
@@ -64,7 +62,6 @@ func GetCategory(c *gin.Context) {
 
 	if tx := database.DB.Where("id = ?", catid).First(&category); tx.Error != nil {
 		c.JSON(http.StatusNotFound, gin.H{
-			"status":  false,
 			"message": "Category id does not exists!",
 		})
 		return
@@ -72,7 +69,6 @@ func GetCategory(c *gin.Context) {
 	tx := database.DB.Model(&model.Product{}).Select("products.name, products.description, products.image_url,price,offer_amount,stock_left,rating_count,average_rating,categories.name AS category_name").Joins("JOIN categories ON categories.id=products.category_id").Where("category_id = ?", catid).Find(&products)
 	if tx.Error != nil {
 		c.JSON(http.StatusNotFound, gin.H{
-			"status":  false,
 			"message": "failed to retrieve data from the products database, or the data doesn't exist",
 		})
 		return

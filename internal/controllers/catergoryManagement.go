@@ -37,7 +37,6 @@ func AddCategory(c *gin.Context) {
 	if err := c.BindJSON(&category); err != nil {
 
 		c.JSON(http.StatusBadRequest, gin.H{
-			"status":  false,
 			"message": "Failed to process the incoming request",
 		})
 		return
@@ -55,8 +54,7 @@ func AddCategory(c *gin.Context) {
 			errs = append(errs, errMsg)
 		}
 		c.JSON(http.StatusBadRequest, gin.H{
-			"status": false,
-			"error":  errs,
+			"error": errs,
 		})
 		return
 	}
@@ -64,7 +62,6 @@ func AddCategory(c *gin.Context) {
 	var existingCat model.Category
 	if tx := database.DB.Where("name = ?", category.Name).First(&existingCat); tx.Error == nil {
 		c.JSON(http.StatusUnauthorized, gin.H{
-			"status":  false,
 			"message": "Category with same name exists!",
 		})
 		return
@@ -79,14 +76,12 @@ func AddCategory(c *gin.Context) {
 	result := database.DB.Create(&cat)
 	if result.Error != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{
-			"status":  false,
 			"message": "Error creating Category",
 			"error":   result.Error,
 		})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
-		"status":  true,
 		"message": "Category created Created!!",
 		"Name":    cat.Name,
 		"Id":      cat.ID,
@@ -98,7 +93,6 @@ func DeleteCategory(c *gin.Context) {
 	var category model.Category
 	if tx := database.DB.Where("id = ?", catid).First(&category); tx.Error != nil {
 		c.JSON(http.StatusNotFound, gin.H{
-			"status":  false,
 			"message": "Category id does not exists!",
 		})
 		return
@@ -132,7 +126,6 @@ func EditCategory(c *gin.Context) {
 
 	if tx := database.DB.Where("id = ?", catid).First(&category); tx.Error != nil {
 		c.JSON(http.StatusNotFound, gin.H{
-			"status":  false,
 			"message": "Category id does not exists!",
 		})
 		return
@@ -141,7 +134,6 @@ func EditCategory(c *gin.Context) {
 	if err := c.BindJSON(&form); err != nil {
 
 		c.JSON(http.StatusBadRequest, gin.H{
-			"status":  false,
 			"message": "Failed to process the incoming request",
 		})
 		return
@@ -159,8 +151,7 @@ func EditCategory(c *gin.Context) {
 			errs = append(errs, errMsg)
 		}
 		c.JSON(http.StatusBadRequest, gin.H{
-			"status": false,
-			"error":  errs,
+			"error": errs,
 		})
 		return
 	}
@@ -171,14 +162,12 @@ func EditCategory(c *gin.Context) {
 	tx := database.DB.Save(&category)
 	if tx.Error != nil {
 		c.JSON(http.StatusNotFound, gin.H{
-			"status":  false,
 			"message": "Updation failed!",
 			"error":   tx.Error,
 		})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
-		"status":   true,
 		"message":  "Category updated",
 		"category": category.Name,
 	})

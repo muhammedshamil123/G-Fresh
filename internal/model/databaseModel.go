@@ -91,3 +91,9 @@ type ShippingAddress struct {
 	State        string `gorm:"type:varchar(255)" json:"state"`
 	PinCode      string `gorm:"type:varchar(20)" json:"pincode"`
 }
+
+type Rating struct {
+	UserID    uint `gorm:"column:user_id"  validate:"required" json:"user_id"`
+	ProductID uint `gorm:"column:product_id"  validate:"required,number" json:"product_id"`
+	Rating    uint `gorm:"column:rating" validate:"number,min=1,max=5" json:"rating"`
+}
