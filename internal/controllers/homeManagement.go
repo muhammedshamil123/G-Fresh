@@ -218,3 +218,51 @@ func SearchAverageRating(c *gin.Context) {
 		})
 	}
 }
+
+func SearchPopular(c *gin.Context) {
+	var products []model.ViewProductList
+	ty := database.DB.Model(&model.Product{}).
+		Select("products.name, products.description, products.image_url, price, offer_amount, stock_left, rating_count, average_rating, categories.name AS category_name, COUNT(order_items.product_id) AS order_count").
+		Joins("JOIN categories ON categories.id = products.category_id").
+		Joins("LEFT JOIN order_items ON order_items.product_id = products.id").
+		Group("products.id, categories.name").
+		Order("order_count DESC").
+		Find(&products)
+
+	if ty.Error != nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"message": "failed to retrieve data from the products database, or the data doesn't exist",
+			"error":   ty.Error,
+		})
+		return
+	}
+	for _, val := range products {
+		c.JSON(http.StatusOK, gin.H{
+			"products": val,
+		})
+	}
+}
+
+func SearchFeatured(c *gin.Context) {
+	var products []model.ViewProductList
+	ty := database.DB.Model(&model.Product{}).
+		Select("products.name, products.description, products.image_url, price, offer_amount, stock_left, rating_count, average_rating, categories.name AS category_name, COUNT(cart_items.product_id) AS cart_count").
+		Joins("JOIN categories ON categories.id = products.category_id").
+		Joins("LEFT JOIN cart_items ON cart_items.product_id = products.id").
+		Group("products.id, categories.name").
+		Order("cart_count DESC").
+		Find(&products)
+
+	if ty.Error != nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"message": "failed to retrieve data from the products database, or the data doesn't exist",
+			"error":   ty.Error,
+		})
+		return
+	}
+	for _, val := range products {
+		c.JSON(http.StatusOK, gin.H{
+			"products": val,
+		})
+	}
+}

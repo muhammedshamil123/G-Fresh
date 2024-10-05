@@ -123,8 +123,7 @@ func DeleteProduct(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
-		"message":       "Product deleted",
-		"rows affected": tx.RowsAffected,
+		"message": "Product deleted",
 	})
 
 }
