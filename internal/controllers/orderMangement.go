@@ -1,13 +1,20 @@
 package controllers
 
 import (
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"g-fresh/internal/database"
 	"g-fresh/internal/model"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/razorpay/razorpay-go"
 )
+
+var o_id uint
 
 func AddOrder(c *gin.Context) {
 
@@ -17,8 +24,13 @@ func AddOrder(c *gin.Context) {
 	var userId uint
 	var carts []model.CartItems
 	var address model.Address
+	methods := map[string]string{
+		"1": "COD",
+		"2": "Razorpay",
+	}
 
 	addressid := c.Query("aid")
+	method := c.Query("method")
 	user, exist := c.Get("email")
 
 	if !exist {
@@ -74,7 +86,7 @@ func AddOrder(c *gin.Context) {
 		}
 		order.TotalAmount += float64(price * int(val.Quantity))
 	}
-	order.PaymentMethod = "COD"
+	order.PaymentMethod = methods[method]
 	order.PaymentStatus = "PENDING"
 
 	if tx := database.DB.Model(&model.Order{}).Create(&order); tx.Error != nil {
@@ -85,13 +97,22 @@ func AddOrder(c *gin.Context) {
 	}
 	if placeOrder(order, carts) {
 		database.DB.Model(&model.CartItems{}).Where("user_id=?", order.UserID).Delete(&model.CartItems{})
+		if order.PaymentMethod == "Razorpay" {
+			o_id = order.OrderID
+			c.JSON(http.StatusOK, gin.H{
+				"message": "Payement pending!",
+			})
+			return
+		}
+		o_id = 0
 		c.JSON(http.StatusOK, gin.H{
 			"message": "Order Created!",
 			"order":   order,
 		})
 		return
+
 	}
-	database.DB.Model(&model.Order{}).Delete(&order)
+	database.DB.Model(&model.Order{}).Where("order_id=?", order.OrderID).Delete(&model.Order{})
 	c.JSON(http.StatusInternalServerError, gin.H{
 		"message": "Error placing order order!",
 	})
@@ -116,18 +137,24 @@ func placeOrder(order model.Order, cart []model.CartItems) bool {
 			return false
 		}
 	}
-	if tx := database.DB.Model(&model.OrderItem{}).Where("user_id=?", order.UserID).Find(&orderitems); tx.Error != nil {
+	if tx := database.DB.Model(&model.OrderItem{}).Where("user_id=? AND order_id=?", order.UserID, order.OrderID).Find(&orderitems); tx.Error != nil {
 		database.DB.Model(&model.OrderItem{}).Where("order_id=?", order.OrderID).Delete(&model.OrderItem{})
 		return false
 	}
+	fmt.Println(orderitems)
 	for _, val := range orderitems {
-		stock := 0
-		if tx := database.DB.Model(&model.Product{}).Select("stock_left").Where("id=?", val.ProductID).First(&stock); tx.Error != nil {
+		var stock model.Product
+		if tx := database.DB.Model(&model.Product{}).Where("id=?", val.ProductID).First(&stock); tx.Error != nil {
 			database.DB.Model(&model.OrderItem{}).Where("order_id=?", order.OrderID).Delete(&model.OrderItem{})
 			return false
 		}
-		stock -= int(val.Quantity)
-		if tx := database.DB.Model(&model.Product{}).Where("id = ?", val.ProductID).Update("stock_left", stock); tx.Error != nil {
+		if stock.StockLeft < val.Quantity {
+			fmt.Println(stock.StockLeft)
+			database.DB.Model(&model.OrderItem{}).Where("order_id=?", order.OrderID).Delete(&model.OrderItem{})
+			return false
+		}
+		stock.StockLeft = stock.StockLeft - val.Quantity
+		if tx := database.DB.Model(&model.Product{}).Where("id = ?", val.ProductID).Update("stock_left", stock.StockLeft); tx.Error != nil {
 			database.DB.Model(&model.OrderItem{}).Where("order_id=?", order.OrderID).Delete(&model.OrderItem{})
 			return false
 		}
@@ -262,4 +289,91 @@ func CancelOrders(c *gin.Context) {
 		fmt.Println("stock incerment failed")
 	}
 	return
+}
+
+func RenderRazorpay(c *gin.Context) {
+	c.HTML(http.StatusOK, "razorpay.html", nil)
+}
+
+func CreateOrder(c *gin.Context) {
+	client := razorpay.NewClient("rzp_test_Mg8qA7Z2ycbKOB", "XEPMrjfiphZjlQHlmlxmgWy6")
+
+	var order model.Order
+	database.DB.Model(&model.Order{}).Where("order_id=?", o_id).First(&order)
+	amount := order.TotalAmount * 100
+	razorpayOrder, err := client.Order.Create(map[string]interface{}{
+		"amount":   amount,
+		"currency": "INR",
+		"receipt":  "order_rcptid_11",
+	}, nil)
+
+	if err != nil {
+		fmt.Println("Error creating Razorpay order:", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error creating order"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"order_id": razorpayOrder["id"],
+		"amount":   amount,
+		"currency": "INR",
+	})
+	fmt.Println(razorpayOrder)
+}
+
+func VerifyPayment(c *gin.Context) {
+	// Capture the Razorpay Payment ID and other details from the frontend
+	orderid := strconv.Itoa(int(o_id))
+	fmt.Println(orderid)
+	var paymentInfo struct {
+		PaymentID string `json:"razorpay_payment_id"`
+		OrderID   string `json:"razorpay_order_id"`
+		Signature string `json:"razorpay_signature"`
+	}
+
+	if err := c.BindJSON(&paymentInfo); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid payment information"})
+		return
+	}
+	fmt.Println(paymentInfo)
+	// Get the Razorpay secret key from environment variables
+	secret := "XEPMrjfiphZjlQHlmlxmgWy6"
+
+	// Verify payment signature using HMAC-SHA256
+	if !verifySignature(paymentInfo.OrderID, paymentInfo.PaymentID, paymentInfo.Signature, secret) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid payment signature"})
+		return
+	}
+	// database.DB.AutoMigrate(&model.Payment{})
+	payement := model.Payment{
+		OrderID:           orderid,
+		WalletPaymentID:   "",
+		RazorpayOrderID:   paymentInfo.OrderID,
+		RazorpayPaymentID: paymentInfo.PaymentID,
+		RazorpaySignature: paymentInfo.Signature,
+		PaymentGateway:    "Razorpay",
+		PaymentStatus:     "PAID",
+	}
+	fmt.Println(payement)
+	database.DB.Model(&model.Payment{}).Create(&payement)
+	database.DB.Model(&model.Order{}).Where("order_id=?", orderid).Update("payment_status", payement.PaymentStatus)
+	o_id = 0
+	// Payment verified
+	c.JSON(http.StatusOK, gin.H{"status": "Payment verified successfully"})
+}
+
+func verifySignature(orderID, paymentID, signature, secret string) bool {
+	// Concatenate the Razorpay Order ID and Payment ID
+	data := orderID + "|" + paymentID
+
+	// Create a new HMAC by defining the hash type and the secret key
+	h := hmac.New(sha256.New, []byte(secret))
+
+	// Write the data to the HMAC
+	h.Write([]byte(data))
+
+	// Get the computed HMAC in hex format
+	expectedSignature := hex.EncodeToString(h.Sum(nil))
+
+	// Compare the computed HMAC with the provided Razorpay signature
+	return expectedSignature == signature
 }

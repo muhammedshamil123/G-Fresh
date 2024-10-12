@@ -64,14 +64,14 @@ func AddToCart(c *gin.Context) {
 	}
 
 	if tx := database.DB.Model(&model.CartItems{}).Where("product_id = ? AND user_id = ?", prodid, userId.ID).First(&cart); tx.Error == nil {
-		cart.Quantity++
+		cart.Quantity += uint(qty)
 		if 10 < cart.Quantity {
 			c.JSON(http.StatusNotFound, gin.H{
 				"message": "Max quantity exceeded!",
 			})
 			return
 		}
-		database.DB.Model(&model.CartItems{}).Where("product_id = ? AND user_id = ?", prodid, userId).Update("quantity", cart.Quantity)
+		database.DB.Model(&model.CartItems{}).Where("product_id = ? AND user_id = ?", prodid, userId.ID).Update("quantity", cart.Quantity)
 		// database.DB.Model(&model.Product{}).Where("id=?", prodid).Update("stock_left", product.StockLeft-uint(qty))
 		c.JSON(http.StatusOK, gin.H{
 			"message": "Added to cart succesfully!!",

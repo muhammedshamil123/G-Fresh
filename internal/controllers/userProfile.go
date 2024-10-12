@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"fmt"
 	"g-fresh/internal/database"
 	"g-fresh/internal/model"
 	"g-fresh/internal/utils"
@@ -246,6 +247,7 @@ func ShowCart(c *gin.Context) {
 			database.DB.Where("user_id=? AND product_id=?", user.ID, val.ProductID).Delete(&model.CartItems{})
 			continue
 		}
+		fmt.Println(products)
 		product := model.ViewCartList{
 			Name:        products.Name,
 			Description: products.Description,

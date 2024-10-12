@@ -66,10 +66,16 @@ func UserRoutes(router *gin.Engine) {
 	router.DELETE("/user/address/delete/:id", controllers.UserAuthorization(), controllers.DeleteAddress)
 	router.PUT("/user/address/edit/:id", controllers.UserAuthorization(), controllers.EditAddress)
 
+	//wishlist
+	router.GET("/user/wishlist", controllers.UserAuthorization(), controllers.ShowWishlist)
+	router.POST("/user/wishlist/add/:pid", controllers.UserAuthorization(), controllers.AddToWishlist)
+	router.DELETE("/user/wishlist/delete/:pid", controllers.UserAuthorization(), controllers.DeleteFromWishlist)
+	router.DELETE("/user/wishlist/move/:pid/:quantity", controllers.UserAuthorization(), controllers.MoveToCart)
+
 	//cart
 	router.GET("/user/cart", controllers.UserAuthorization(), controllers.ShowCart)
 	router.POST("/user/cart/add/:pid/:quantity", controllers.UserAuthorization(), controllers.AddToCart)
-	router.POST("/user/cart/delete/:pid", controllers.UserAuthorization(), controllers.DeleteFromCart)
+	router.DELETE("/user/cart/delete/:pid", controllers.UserAuthorization(), controllers.DeleteFromCart)
 
 	//search
 	router.GET("/user/products/lowtohigh", controllers.UserAuthorization(), controllers.Search_P_LtoH)
@@ -83,9 +89,16 @@ func UserRoutes(router *gin.Engine) {
 
 	//order
 	router.GET("/user/order", controllers.UserAuthorization(), controllers.ShowOrders)
-	router.POST("/user/order/:aid", controllers.UserAuthorization(), controllers.AddOrder)
+	router.POST("/user/order/:aid/:method", controllers.UserAuthorization(), controllers.AddOrder)
 	router.PATCH("/user/order/cancel/:pid/:orderid", controllers.UserAuthorization(), controllers.CancelOrders)
+	router.LoadHTMLGlob("templates/*")
+	router.GET("/user/order/payement/", controllers.UserAuthorization(), controllers.RenderRazorpay)
+	router.POST("/user/order/payement/create-order", controllers.UserAuthorization(), controllers.CreateOrder)
+	router.POST("/user/order/payement/verify-payment", controllers.UserAuthorization(), controllers.VerifyPayment)
 
 	//rating
 	router.POST("/user/rating/:pid/:rating", controllers.UserAuthorization(), controllers.AddRating)
+
+	//wallet
+	router.GET("/user/wallet", controllers.UserAuthorization(), controllers.ShowWallet)
 }

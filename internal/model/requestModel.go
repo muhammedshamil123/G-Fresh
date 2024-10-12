@@ -11,7 +11,7 @@ type UserEmailLoginRequest struct {
 type UserEmailSignupRequest struct {
 	Name            string `validate:"required" json:"name"`
 	Email           string `validate:"required,email" json:"email"`
-	PhoneNumber     string `validate:"required,number,min=1000000000,max=9999999999" json:"phonenumber"`
+	PhoneNumber     string `validate:"required" json:"phonenumber"`
 	Password        string `validate:"required" json:"password"`
 	ConfirmPassword string `validate:"required" json:"confirmpassword"`
 }
@@ -36,12 +36,12 @@ type AddAddressRequest struct {
 	StreetNumber string `validate:"required" json:"streetnumber"`
 	City         string `validate:"required" json:"city"`
 	State        string `validate:"required" json:"state"`
-	PostalCode   string `validate:"number,min=100000,max=999999" json:"postalcode"`
+	PostalCode   string `validate:"required" json:"postalcode"`
 }
 type ProfileEdit struct {
 	Name        string `validate:"required" json:"name"`
 	Email       string `validate:"required,email" json:"email"`
-	PhoneNumber string `validate:"number,min=1000000000,max=9999999999d" json:"phonenumber"`
+	PhoneNumber string `validate:"required" json:"phonenumber"`
 	Picture     string `validate:"required" json:"picture"`
 }
 
@@ -49,4 +49,15 @@ type ChangePasswordRequest struct {
 	OldPassword     string `validate:"required" json:"oldpassword"`
 	Password        string `validate:"required" json:"password"`
 	ConfirmPassword string `validate:"required" json:"confirmpassword"`
+}
+
+type InitiatePayment struct {
+	OrderID        string `json:"order_id"`
+	PaymentGateway string `json:"payment_gateway"`
+}
+
+type RazorpayPayment struct {
+	PaymentID string `form:"razorpay_payment_id" binding:"required" json:"razorpay_payment_id"`
+	OrderID   string `form:"razorpay_order_id" binding:"required" json:"razorpay_order_id"`
+	Signature string `form:"razorpay_signature" binding:"required" json:"razorpay_signature"`
 }

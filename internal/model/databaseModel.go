@@ -97,3 +97,18 @@ type Rating struct {
 	ProductID uint `gorm:"column:product_id"  validate:"required,number" json:"product_id"`
 	Rating    uint `gorm:"column:rating" validate:"number,min=1,max=5" json:"rating"`
 }
+
+type Payment struct {
+	OrderID           string `validate:"required" json:"order_id"`
+	WalletPaymentID   string `json:"wallet_payment_id" gorm:"column:wallet_payment_id"`
+	RazorpayOrderID   string `validate:"required" json:"razorpay_order_id" gorm:"column:razorpay_order_id"`
+	RazorpayPaymentID string `validate:"required" json:"razorpay_payment_id" gorm:"column:razorpay_payment_id"`
+	RazorpaySignature string `validate:"required" json:"razorpay_signature" gorm:"column:razorpay_signature"`
+	PaymentGateway    string `json:"payment_gateway" gorm:"payment_gateway"`
+	PaymentStatus     string `validate:"required" json:"payment_status" gorm:"column:payment_status"`
+}
+
+type WishlistItems struct {
+	UserID    uint `gorm:"column:user_id" validate:"required,number" json:"user_id"`
+	ProductID uint `validate:"required,number" json:"product_id"`
+}

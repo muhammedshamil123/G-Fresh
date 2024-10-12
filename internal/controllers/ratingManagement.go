@@ -63,8 +63,7 @@ func AddRating(c *gin.Context) {
 		})
 		return
 	}
-	// database.DB.Model(&model.Product{}).Where("id=?", pid).Updates(map[string]interface{}{"rating_sum": 0, "rating_count": 0, "average_rating": 0})
-	// database.DB.Model(&model.Rating{}).Where("user_id=? AND product_id=?", userId, pid).Delete(&model.Rating{})
+
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Rating added",
 	})
