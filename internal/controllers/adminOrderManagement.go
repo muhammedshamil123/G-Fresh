@@ -15,7 +15,7 @@ import (
 func ShowOrdersAdmin(c *gin.Context) {
 
 	var orders []model.OrderResponce
-	if tx := database.DB.Model(&model.Order{}).Select("order_id,item_count,total_amount,payment_method,payment_status,ordered_at").Find(&orders); tx.Error != nil {
+	if tx := database.DB.Model(&model.Order{}).Select("order_id,item_count,total_amount,payment_method,payment_status,ordered_at,order_status").Find(&orders); tx.Error != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"message": "Orders Empty!",
 		})
@@ -85,7 +85,81 @@ func CancelOrdersAdmin(c *gin.Context) {
 		})
 		return
 	}
-
+	if pid == "" {
+		if order.OrderStatus == "CANCELED" {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"message": "Order cancelled already!",
+			})
+			return
+		}
+		database.DB.Model(&model.Order{}).Where("order_id = ? AND user_id = ?", oid, order.UserID).Update("order_status", "CANCELED")
+		if tx := database.DB.Model(&model.OrderItem{}).Where("order_id=? AND user_id=?", oid, order.UserID).Update("order_status", "CANCELED"); tx.Error != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"message": "Cancellation failed!",
+			})
+			return
+		}
+		if order.PaymentStatus == "PAID" {
+			var wallet model.UserWalletHistory
+			var cBallance float64
+			if tx := database.DB.Model(&model.UserWalletHistory{}).Where("user_id=?", order.UserID).Last(&wallet); tx.Error == nil {
+				cBallance = wallet.CurrentBalance
+				fmt.Println("no error", cBallance)
+			} else {
+				fmt.Println(tx.Error)
+			}
+			newBalance := cBallance + order.TotalAmount
+			fmt.Println(newBalance, cBallance, order)
+			newWallet := model.UserWalletHistory{
+				TransactionTime: time.Now(),
+				WalletPaymentID: uuid.New().String(),
+				UserID:          order.UserID,
+				Type:            "Incoming",
+				Amount:          order.TotalAmount,
+				CurrentBalance:  newBalance,
+				OrderID:         strconv.Itoa(int(order.OrderID)),
+				Reason:          "Order Cancel",
+			}
+			database.DB.Model(&model.UserWalletHistory{}).Create(&newWallet)
+			payement := model.Payment{
+				OrderID:           strconv.Itoa(int(order.OrderID)),
+				WalletPaymentID:   newWallet.WalletPaymentID,
+				RazorpayOrderID:   "",
+				RazorpayPaymentID: "",
+				RazorpaySignature: "",
+				PaymentGateway:    "Wallet",
+				PaymentStatus:     "REFUND",
+			}
+			database.DB.Model(&model.Payment{}).Create(&payement)
+			c.JSON(http.StatusOK, gin.H{
+				"message":        "Order Cancelled!",
+				"Refund":         "Success",
+				"wallet balance": newWallet.CurrentBalance,
+			})
+		} else {
+			c.JSON(http.StatusOK, gin.H{
+				"message": "Order Cancelled!",
+			})
+		}
+		var oitem []model.OrderItem
+		if tx := database.DB.Model(&model.OrderItem{}).Where("order_id=? AND user_id=?", oid, order.UserID).Find(&oitem); tx.Error != nil {
+			c.JSON(http.StatusNotFound, gin.H{
+				"message": "Order item does not exist!",
+			})
+			return
+		}
+		for _, val := range oitem {
+			var product model.Product
+			if tx := database.DB.Model(&model.Product{}).Where("id=?", val.ProductID).First(&product); tx.Error != nil {
+				fmt.Println("product does not exist")
+			}
+			product.StockLeft += val.Quantity
+			if tx := database.DB.Model(&model.Product{}).Where("id=?", val.ProductID).Update("stock_left", product.StockLeft); tx.Error != nil {
+				fmt.Println("stock incerment failed")
+			}
+		}
+		return
+	}
 	var oitem model.OrderItem
 	if tx := database.DB.Model(&model.OrderItem{}).Where("order_id=? AND product_id=?", oid, pid).First(&oitem); tx.Error != nil {
 		c.JSON(http.StatusNotFound, gin.H{
@@ -102,7 +176,18 @@ func CancelOrdersAdmin(c *gin.Context) {
 	order.ItemCount--
 	order.TotalAmount -= oitem.Amount
 
-	if tx := database.DB.Model(&model.Order{}).Where("order_id = ?", oid).Updates(map[string]interface{}{"item_count": order.ItemCount, "total_amount": order.TotalAmount}); tx.Error != nil {
+	var orderitems []model.OrderItem
+	flag := true
+	database.DB.Model(&model.OrderItem{}).Where("order_id=? AND user_id=?", oid, order.UserID).Find(&orderitems)
+	for _, val := range orderitems {
+		if val.OrderStatus != "CANCELED" {
+			flag = false
+		}
+	}
+	if flag {
+		order.OrderStatus = "CANCELED"
+	}
+	if tx := database.DB.Model(&model.Order{}).Where("order_id = ?", oid).Updates(map[string]interface{}{"item_count": order.ItemCount, "total_amount": order.TotalAmount, "order_status": order.OrderStatus}); tx.Error != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"message": "Cancellation failed!",
 		})
@@ -208,13 +293,9 @@ func ChangeStatus(c *gin.Context) {
 		})
 		return
 	}
+
 	if status == "DELIVERED" && order.PaymentStatus != "PAID" {
-		if tx := database.DB.Model(&model.Order{}).Where("order_id=?", oid).Update("payment_status", "PAID"); tx.Error != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"message": "payement status not changed!",
-			})
-			return
-		}
+
 		payement := model.Payment{
 			OrderID:           strconv.Itoa(int(order.OrderID)),
 			WalletPaymentID:   "",
@@ -231,6 +312,26 @@ func ChangeStatus(c *gin.Context) {
 		})
 		return
 	}
+	if status == "DELIVERED" {
+		var orderitems []model.OrderItem
+		flag := true
+		database.DB.Model(&model.OrderItem{}).Where("order_id=? AND user_id=?", oid, order.UserID).Find(&orderitems)
+		for _, val := range orderitems {
+			if val.OrderStatus != "DELIVERED" {
+				flag = false
+			}
+		}
+		if flag {
+			database.DB.Model(&model.Order{}).Where("order_id=?", order.OrderID).Update("order_status", "DELIVERED")
+			if tx := database.DB.Model(&model.Order{}).Where("order_id=?", oid).Update("payment_status", "PAID"); tx.Error != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{
+					"message": "payement status not changed!",
+				})
+				return
+			}
+		}
+	}
+
 	if status == "RETURNED" && order.PaymentStatus == "PAID" {
 		order.ItemCount -= 1
 		order.TotalAmount -= oitem.Amount
@@ -283,6 +384,20 @@ func ChangeStatus(c *gin.Context) {
 		product.StockLeft += oitem.Quantity
 		if tx := database.DB.Model(&model.Product{}).Where("id=?", pid).Update("stock_left", product.StockLeft); tx.Error != nil {
 			fmt.Println("stock incerment failed")
+		}
+
+	}
+	if status == "RETURNED" {
+		var orderitems []model.OrderItem
+		flag := true
+		database.DB.Model(&model.OrderItem{}).Where("order_id=? AND user_id=?", oid, order.UserID).Find(&orderitems)
+		for _, val := range orderitems {
+			if val.OrderStatus != "RETURNED" {
+				flag = false
+			}
+		}
+		if flag {
+			database.DB.Model(&model.Order{}).Where("order_id=?", order.OrderID).Update("order_status", "RETURNED")
 		}
 		return
 	}

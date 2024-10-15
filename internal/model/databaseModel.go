@@ -72,6 +72,7 @@ type Order struct {
 	PaymentMethod   string          `validate:"required" json:"payment_method" gorm:"column:payment_method"`
 	PaymentStatus   string          `validate:"required" json:"payment_status" gorm:"column:payment_status"`
 	OrderedAt       time.Time       `gorm:"autoCreateTime" json:"ordered_at"`
+	OrderStatus     string          `validate:"required" json:"order_status" gorm:"column:order_status"`
 }
 
 type OrderItem struct {

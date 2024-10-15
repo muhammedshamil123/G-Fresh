@@ -3,6 +3,7 @@ package controllers
 import (
 	"g-fresh/internal/database"
 	"g-fresh/internal/model"
+	"math"
 	"net/http"
 	"strconv"
 
@@ -55,7 +56,7 @@ func AddRating(c *gin.Context) {
 	}
 	product.RatingSum += float64(rat)
 	product.RatingCount++
-	product.AverageRating = product.RatingSum / float64(product.RatingCount)
+	product.AverageRating = math.Round((product.RatingSum/float64(product.RatingCount))*10) / 10
 	if tx := database.DB.Model(&model.Product{}).Where("id=?", pid).Updates(map[string]interface{}{"rating_sum": product.RatingSum, "rating_count": product.RatingCount, "average_rating": product.AverageRating}); tx.Error != nil {
 		database.DB.Model(&model.Rating{}).Where("user_id=? AND product_id=?", userId, pid).Delete(&model.Rating{})
 		c.JSON(http.StatusInternalServerError, gin.H{

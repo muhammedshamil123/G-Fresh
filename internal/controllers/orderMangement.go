@@ -91,6 +91,7 @@ func AddOrder(c *gin.Context) {
 	}
 	order.PaymentMethod = methods[method]
 	order.PaymentStatus = "PENDING"
+	order.OrderStatus = "PLACED"
 
 	if tx := database.DB.Model(&model.Order{}).Create(&order); tx.Error != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -234,7 +235,7 @@ func ShowOrders(c *gin.Context) {
 		return
 	}
 	var orders []model.OrderResponce
-	if tx := database.DB.Model(&model.Order{}).Select("order_id,item_count,total_amount,payment_method,payment_status,ordered_at").Where("user_id=?", userId).Find(&orders); tx.Error != nil {
+	if tx := database.DB.Model(&model.Order{}).Select("order_id,item_count,total_amount,payment_method,payment_status,ordered_at,order_status").Where("user_id=?", userId).Find(&orders); tx.Error != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"message": "Orders Empty!",
 		})
@@ -302,11 +303,87 @@ func CancelOrders(c *gin.Context) {
 	}
 	oid := c.Query("orderid")
 	pid := c.Query("pid")
+
 	var order model.Order
 	if tx := database.DB.Model(&model.Order{}).Where("order_id=? AND user_id=?", oid, userId).First(&order); tx.Error != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"message": "Order does not exist!",
 		})
+		return
+	}
+	if pid == "" {
+		if order.OrderStatus == "CANCELED" {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"message": "Order cancelled already!",
+			})
+			return
+		}
+		database.DB.Model(&model.Order{}).Where("order_id = ? AND user_id = ?", oid, userId).Update("order_status", "CANCELED")
+		if tx := database.DB.Model(&model.OrderItem{}).Where("order_id=? AND user_id=?", oid, userId).Update("order_status", "CANCELED"); tx.Error != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"message": "Cancellation failed!",
+			})
+			return
+		}
+		if order.PaymentStatus == "PAID" {
+			var wallet model.UserWalletHistory
+			var cBallance float64
+			if tx := database.DB.Model(&model.UserWalletHistory{}).Where("user_id=?", order.UserID).Last(&wallet); tx.Error == nil {
+				cBallance = wallet.CurrentBalance
+				fmt.Println("no error", cBallance)
+			} else {
+				fmt.Println(tx.Error)
+			}
+			newBalance := cBallance + order.TotalAmount
+			fmt.Println(newBalance, cBallance, order)
+			newWallet := model.UserWalletHistory{
+				TransactionTime: time.Now(),
+				WalletPaymentID: uuid.New().String(),
+				UserID:          order.UserID,
+				Type:            "Incoming",
+				Amount:          order.TotalAmount,
+				CurrentBalance:  newBalance,
+				OrderID:         strconv.Itoa(int(order.OrderID)),
+				Reason:          "Order Cancel",
+			}
+			database.DB.Model(&model.UserWalletHistory{}).Create(&newWallet)
+			payement := model.Payment{
+				OrderID:           strconv.Itoa(int(order.OrderID)),
+				WalletPaymentID:   newWallet.WalletPaymentID,
+				RazorpayOrderID:   "",
+				RazorpayPaymentID: "",
+				RazorpaySignature: "",
+				PaymentGateway:    "Wallet",
+				PaymentStatus:     "REFUND",
+			}
+			database.DB.Model(&model.Payment{}).Create(&payement)
+			c.JSON(http.StatusOK, gin.H{
+				"message":        "Order Cancelled!",
+				"Refund":         "Success",
+				"wallet balance": newWallet.CurrentBalance,
+			})
+		} else {
+			c.JSON(http.StatusOK, gin.H{
+				"message": "Order Cancelled!",
+			})
+		}
+		var oitem []model.OrderItem
+		if tx := database.DB.Model(&model.OrderItem{}).Where("order_id=? AND user_id=?", oid, userId).Find(&oitem); tx.Error != nil {
+			c.JSON(http.StatusNotFound, gin.H{
+				"message": "Order item does not exist!",
+			})
+			return
+		}
+		for _, val := range oitem {
+			var product model.Product
+			if tx := database.DB.Model(&model.Product{}).Where("id=?", val.ProductID).First(&product); tx.Error != nil {
+				fmt.Println("product does not exist")
+			}
+			product.StockLeft += val.Quantity
+			if tx := database.DB.Model(&model.Product{}).Where("id=?", val.ProductID).Update("stock_left", product.StockLeft); tx.Error != nil {
+				fmt.Println("stock incerment failed")
+			}
+		}
 		return
 	}
 	var oitem model.OrderItem
@@ -330,8 +407,18 @@ func CancelOrders(c *gin.Context) {
 	}
 	order.ItemCount -= 1
 	order.TotalAmount -= oitem.Amount
-
-	if tx := database.DB.Model(&model.Order{}).Where("order_id = ? AND user_id = ?", oid, userId).Updates(map[string]interface{}{"item_count": order.ItemCount, "total_amount": order.TotalAmount}); tx.Error != nil {
+	var orderitems []model.OrderItem
+	flag := true
+	database.DB.Model(&model.OrderItem{}).Where("order_id=? AND user_id=?", oid, userId).Find(&orderitems)
+	for _, val := range orderitems {
+		if val.OrderStatus != "CANCELED" {
+			flag = false
+		}
+	}
+	if flag {
+		order.OrderStatus = "CANCELED"
+	}
+	if tx := database.DB.Model(&model.Order{}).Where("order_id = ? AND user_id = ?", oid, userId).Updates(map[string]interface{}{"item_count": order.ItemCount, "total_amount": order.TotalAmount, "order_status": order.OrderStatus}); tx.Error != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"message": "Cancellation failed!",
 		})
@@ -481,10 +568,35 @@ func OrderReturn(c *gin.Context) {
 	}
 	oid := c.Query("orderid")
 	pid := c.Query("pid")
+
 	var order model.Order
 	if tx := database.DB.Model(&model.Order{}).Where("order_id=? AND user_id=?", oid, userId).First(&order); tx.Error != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"message": "Order does not exist!",
+		})
+		return
+	}
+	if pid == "" {
+		if order.OrderStatus != "DELIVERED" {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"message": "Order not delivered!",
+			})
+			return
+		}
+		if order.OrderStatus == "RETURNED" {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"message": "Order returned already!",
+			})
+			return
+		}
+		if tx := database.DB.Model(&model.OrderItem{}).Where("order_id=? AND user_id=?", oid, userId).Update("order_status", "RETURN REQUEST"); tx.Error != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"message": "Return failed!",
+			})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"message": "Return Requested!",
 		})
 		return
 	}

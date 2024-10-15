@@ -74,6 +74,7 @@ type OrderResponce struct {
 	PaymentMethod string    `json:"payment_method"`
 	PaymentStatus string    `json:"payment_status"`
 	OrderedAt     time.Time `json:"ordered_at"`
+	OrderStatus   string    `json:"order_status"`
 }
 
 type OrderItemResponse struct {
