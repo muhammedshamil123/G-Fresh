@@ -112,3 +112,14 @@ type WishlistItems struct {
 	UserID    uint `gorm:"column:user_id" validate:"required,number" json:"user_id"`
 	ProductID uint `validate:"required,number" json:"product_id"`
 }
+
+type UserWalletHistory struct {
+	TransactionTime time.Time `gorm:"autoCreateTime" json:"transaction_time"`
+	WalletPaymentID string    `gorm:"column:wallet_payment_id" json:"wallet_payment_id"`
+	UserID          uint      `gorm:"column:user_id" json:"user_id"`
+	Type            string    `gorm:"column:type" json:"type"` //incoming //outgoing
+	OrderID         string    `gorm:"column:order_id" json:"order_id"`
+	Amount          float64   `gorm:"column:amount" json:"amount"`
+	CurrentBalance  float64   `gorm:"column:current_balance" json:"current_balance"`
+	Reason          string    `gorm:"column:reason" json:"reason"`
+}

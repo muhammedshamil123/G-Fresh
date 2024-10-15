@@ -29,7 +29,7 @@ func GetCategoryList(c *gin.Context) {
 			"category": val,
 		})
 	}
-	return
+
 }
 
 func AddCategory(c *gin.Context) {

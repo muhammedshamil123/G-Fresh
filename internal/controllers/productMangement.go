@@ -30,7 +30,6 @@ func GetProductList(c *gin.Context) {
 			"product": val,
 		})
 	}
-	return
 }
 
 func AddProducts(c *gin.Context) {

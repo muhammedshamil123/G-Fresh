@@ -4,6 +4,7 @@ import (
 	"g-fresh/internal/database"
 	"g-fresh/internal/model"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
@@ -118,151 +119,351 @@ func GetProduct(c *gin.Context) {
 }
 
 func Search_P_LtoH(c *gin.Context) {
-	var products []model.ViewProductList
-	ty := database.DB.Model(&model.Product{}).Select("products.name, products.description, products.image_url,price,offer_amount,stock_left,rating_count,average_rating,categories.name AS category_name").Joins("JOIN categories ON categories.id=products.category_id").Order("price ASC").Find(&products)
-	if ty.Error != nil {
-		c.JSON(http.StatusNotFound, gin.H{
-			"message": "failed to retrieve data from the products database, or the data doesn't exist",
-			"error":   ty.Error,
-		})
-		return
-	}
-	for _, val := range products {
+	cat, _ := strconv.Atoi(c.Query("category"))
+	if cat == 0 {
+		var products []model.ViewProductList
+		ty := database.DB.Model(&model.Product{}).Select("products.name, products.description, products.image_url,price,offer_amount,stock_left,rating_count,average_rating,categories.name AS category_name").Joins("JOIN categories ON categories.id=products.category_id").Order("price ASC").Find(&products)
+		if ty.Error != nil {
+			c.JSON(http.StatusNotFound, gin.H{
+				"message": "failed to retrieve data from the products database, or the data doesn't exist",
+				"error":   ty.Error,
+			})
+			return
+		}
+		for _, val := range products {
+			c.JSON(http.StatusOK, gin.H{
+				"products": val,
+			})
+		}
+	} else if categoryExist(cat) {
+		var products []model.ViewProductList
+		ty := database.DB.Model(&model.Product{}).Where("category_id=?", cat).Select("products.name, products.description, products.image_url,price,offer_amount,stock_left,rating_count,average_rating,categories.name AS category_name").Joins("JOIN categories ON categories.id=products.category_id").Order("price ASC").Find(&products)
+		if ty.Error != nil {
+			c.JSON(http.StatusNotFound, gin.H{
+				"message": "failed to retrieve data from the products database, or the data doesn't exist",
+				"error":   ty.Error,
+			})
+			return
+		}
+		for _, val := range products {
+			c.JSON(http.StatusOK, gin.H{
+				"products": val,
+			})
+		}
+	} else {
 		c.JSON(http.StatusOK, gin.H{
-			"products": val,
+			"Category": "Does not exist",
 		})
 	}
 }
 
 func Search_P_HtoL(c *gin.Context) {
-	var products []model.ViewProductList
-	ty := database.DB.Model(&model.Product{}).Select("products.name, products.description, products.image_url,price,offer_amount,stock_left,rating_count,average_rating,categories.name AS category_name").Joins("JOIN categories ON categories.id=products.category_id").Order("price DESC").Find(&products)
-	if ty.Error != nil {
-		c.JSON(http.StatusNotFound, gin.H{
-			"message": "failed to retrieve data from the products database, or the data doesn't exist",
-			"error":   ty.Error,
-		})
-		return
-	}
-	for _, val := range products {
+	cat, _ := strconv.Atoi(c.Query("category"))
+	if cat == 0 {
+		var products []model.ViewProductList
+		ty := database.DB.Model(&model.Product{}).Select("products.name, products.description, products.image_url,price,offer_amount,stock_left,rating_count,average_rating,categories.name AS category_name").Joins("JOIN categories ON categories.id=products.category_id").Order("price DESC").Find(&products)
+		if ty.Error != nil {
+			c.JSON(http.StatusNotFound, gin.H{
+				"message": "failed to retrieve data from the products database, or the data doesn't exist",
+				"error":   ty.Error,
+			})
+			return
+		}
+		for _, val := range products {
+			c.JSON(http.StatusOK, gin.H{
+				"products": val,
+			})
+		}
+	} else if categoryExist(cat) {
+		var products []model.ViewProductList
+		ty := database.DB.Model(&model.Product{}).Where("category_id=?", cat).Select("products.name, products.description, products.image_url,price,offer_amount,stock_left,rating_count,average_rating,categories.name AS category_name").Joins("JOIN categories ON categories.id=products.category_id").Order("price DESC").Find(&products)
+		if ty.Error != nil {
+			c.JSON(http.StatusNotFound, gin.H{
+				"message": "failed to retrieve data from the products database, or the data doesn't exist",
+				"error":   ty.Error,
+			})
+			return
+		}
+		for _, val := range products {
+			c.JSON(http.StatusOK, gin.H{
+				"products": val,
+			})
+		}
+	} else {
 		c.JSON(http.StatusOK, gin.H{
-			"products": val,
+			"Category": "Does not exist",
 		})
 	}
 }
 
 func SearchNew(c *gin.Context) {
-	var products []model.ViewProductList
-	ty := database.DB.Model(&model.Product{}).Select("products.name, products.description, products.image_url,price,offer_amount,stock_left,rating_count,average_rating,categories.name AS category_name").Joins("JOIN categories ON categories.id=products.category_id").Order("products.created_at DESC").Find(&products)
-	if ty.Error != nil {
-		c.JSON(http.StatusNotFound, gin.H{
-			"message": "failed to retrieve data from the products database, or the data doesn't exist",
-			"error":   ty.Error,
-		})
-		return
-	}
-	for _, val := range products {
+	cat, _ := strconv.Atoi(c.Query("category"))
+	if cat == 0 {
+		var products []model.ViewProductList
+		ty := database.DB.Model(&model.Product{}).Select("products.name, products.description, products.image_url,price,offer_amount,stock_left,rating_count,average_rating,categories.name AS category_name").Joins("JOIN categories ON categories.id=products.category_id").Order("products.created_at DESC").Find(&products)
+		if ty.Error != nil {
+			c.JSON(http.StatusNotFound, gin.H{
+				"message": "failed to retrieve data from the products database, or the data doesn't exist",
+				"error":   ty.Error,
+			})
+			return
+		}
+		for _, val := range products {
+			c.JSON(http.StatusOK, gin.H{
+				"products": val,
+			})
+		}
+	} else if categoryExist(cat) {
+		var products []model.ViewProductList
+		ty := database.DB.Model(&model.Product{}).Where("category_id=?", cat).Select("products.name, products.description, products.image_url,price,offer_amount,stock_left,rating_count,average_rating,categories.name AS category_name").Joins("JOIN categories ON categories.id=products.category_id").Order("products.created_at DESC").Find(&products)
+		if ty.Error != nil {
+			c.JSON(http.StatusNotFound, gin.H{
+				"message": "failed to retrieve data from the products database, or the data doesn't exist",
+				"error":   ty.Error,
+			})
+			return
+		}
+		for _, val := range products {
+			c.JSON(http.StatusOK, gin.H{
+				"products": val,
+			})
+		}
+	} else {
 		c.JSON(http.StatusOK, gin.H{
-			"products": val,
+			"Category": "Does not exist",
 		})
 	}
+
 }
 
 func SearchAtoZ(c *gin.Context) {
-	var products []model.ViewProductList
-	ty := database.DB.Model(&model.Product{}).Select("products.name, products.description, products.image_url,price,offer_amount,stock_left,rating_count,average_rating,categories.name AS category_name").Joins("JOIN categories ON categories.id=products.category_id").Order("LOWER(products.name) ASC").Find(&products)
-	if ty.Error != nil {
-		c.JSON(http.StatusNotFound, gin.H{
-			"message": "failed to retrieve data from the products database, or the data doesn't exist",
-			"error":   ty.Error,
-		})
-		return
-	}
-	for _, val := range products {
+
+	cat, _ := strconv.Atoi(c.Query("category"))
+	if cat == 0 {
+		var products []model.ViewProductList
+		ty := database.DB.Model(&model.Product{}).Select("products.name, products.description, products.image_url,price,offer_amount,stock_left,rating_count,average_rating,categories.name AS category_name").Joins("JOIN categories ON categories.id=products.category_id").Order("LOWER(products.name) ASC").Find(&products)
+		if ty.Error != nil {
+			c.JSON(http.StatusNotFound, gin.H{
+				"message": "failed to retrieve data from the products database, or the data doesn't exist",
+				"error":   ty.Error,
+			})
+			return
+		}
+		for _, val := range products {
+			c.JSON(http.StatusOK, gin.H{
+				"products": val,
+			})
+		}
+	} else if categoryExist(cat) {
+		var products []model.ViewProductList
+		ty := database.DB.Model(&model.Product{}).Where("category_id=?", cat).Select("products.name, products.description, products.image_url,price,offer_amount,stock_left,rating_count,average_rating,categories.name AS category_name").Joins("JOIN categories ON categories.id=products.category_id").Order("LOWER(products.name) ASC").Find(&products)
+		if ty.Error != nil {
+			c.JSON(http.StatusNotFound, gin.H{
+				"message": "failed to retrieve data from the products database, or the data doesn't exist",
+				"error":   ty.Error,
+			})
+			return
+		}
+		for _, val := range products {
+			c.JSON(http.StatusOK, gin.H{
+				"products": val,
+			})
+		}
+	} else {
 		c.JSON(http.StatusOK, gin.H{
-			"products": val,
+			"Category": "Does not exist",
 		})
 	}
 }
 
 func SearchZtoA(c *gin.Context) {
-	var products []model.ViewProductList
-	ty := database.DB.Model(&model.Product{}).Select("products.name, products.description, products.image_url,price,offer_amount,stock_left,rating_count,average_rating,categories.name AS category_name").Joins("JOIN categories ON categories.id=products.category_id").Order("LOWER(products.name) DESC").Find(&products)
-	if ty.Error != nil {
-		c.JSON(http.StatusNotFound, gin.H{
-			"message": "failed to retrieve data from the products database, or the data doesn't exist",
-			"error":   ty.Error,
-		})
-		return
-	}
-	for _, val := range products {
+	cat, _ := strconv.Atoi(c.Query("category"))
+	if cat == 0 {
+		var products []model.ViewProductList
+		ty := database.DB.Model(&model.Product{}).Select("products.name, products.description, products.image_url,price,offer_amount,stock_left,rating_count,average_rating,categories.name AS category_name").Joins("JOIN categories ON categories.id=products.category_id").Order("LOWER(products.name) DESC").Find(&products)
+		if ty.Error != nil {
+			c.JSON(http.StatusNotFound, gin.H{
+				"message": "failed to retrieve data from the products database, or the data doesn't exist",
+				"error":   ty.Error,
+			})
+			return
+		}
+		for _, val := range products {
+			c.JSON(http.StatusOK, gin.H{
+				"products": val,
+			})
+		}
+	} else if categoryExist(cat) {
+		var products []model.ViewProductList
+		ty := database.DB.Model(&model.Product{}).Where("category_id=?", cat).Select("products.name, products.description, products.image_url,price,offer_amount,stock_left,rating_count,average_rating,categories.name AS category_name").Joins("JOIN categories ON categories.id=products.category_id").Order("LOWER(products.name) DESC").Find(&products)
+		if ty.Error != nil {
+			c.JSON(http.StatusNotFound, gin.H{
+				"message": "failed to retrieve data from the products database, or the data doesn't exist",
+				"error":   ty.Error,
+			})
+			return
+		}
+		for _, val := range products {
+			c.JSON(http.StatusOK, gin.H{
+				"products": val,
+			})
+		}
+	} else {
 		c.JSON(http.StatusOK, gin.H{
-			"products": val,
+			"Category": "Does not exist",
 		})
 	}
 }
 
 func SearchAverageRating(c *gin.Context) {
-	var products []model.ViewProductList
-	ty := database.DB.Model(&model.Product{}).Select("products.name, products.description, products.image_url,price,offer_amount,stock_left,rating_count,average_rating,categories.name AS category_name").Joins("JOIN categories ON categories.id=products.category_id").Order("average_rating DESC").Find(&products)
-	if ty.Error != nil {
-		c.JSON(http.StatusNotFound, gin.H{
-			"message": "failed to retrieve data from the products database, or the data doesn't exist",
-			"error":   ty.Error,
-		})
-		return
-	}
-	for _, val := range products {
+	cat, _ := strconv.Atoi(c.Query("category"))
+	if cat == 0 {
+		var products []model.ViewProductList
+		ty := database.DB.Model(&model.Product{}).Select("products.name, products.description, products.image_url,price,offer_amount,stock_left,rating_count,average_rating,categories.name AS category_name").Joins("JOIN categories ON categories.id=products.category_id").Order("average_rating DESC").Find(&products)
+		if ty.Error != nil {
+			c.JSON(http.StatusNotFound, gin.H{
+				"message": "failed to retrieve data from the products database, or the data doesn't exist",
+				"error":   ty.Error,
+			})
+			return
+		}
+		for _, val := range products {
+			c.JSON(http.StatusOK, gin.H{
+				"products": val,
+			})
+		}
+	} else if categoryExist(cat) {
+		var products []model.ViewProductList
+		ty := database.DB.Model(&model.Product{}).Where("category_id=?", cat).Select("products.name, products.description, products.image_url,price,offer_amount,stock_left,rating_count,average_rating,categories.name AS category_name").Joins("JOIN categories ON categories.id=products.category_id").Order("average_rating DESC").Find(&products)
+		if ty.Error != nil {
+			c.JSON(http.StatusNotFound, gin.H{
+				"message": "failed to retrieve data from the products database, or the data doesn't exist",
+				"error":   ty.Error,
+			})
+			return
+		}
+		for _, val := range products {
+			c.JSON(http.StatusOK, gin.H{
+				"products": val,
+			})
+		}
+	} else {
 		c.JSON(http.StatusOK, gin.H{
-			"products": val,
+			"Category": "Does not exist",
 		})
 	}
 }
 
 func SearchPopular(c *gin.Context) {
-	var products []model.ViewProductList
-	ty := database.DB.Model(&model.Product{}).
-		Select("products.name, products.description, products.image_url, price, offer_amount, stock_left, rating_count, average_rating, categories.name AS category_name, COUNT(order_items.product_id) AS order_count").
-		Joins("JOIN categories ON categories.id = products.category_id").
-		Joins("LEFT JOIN order_items ON order_items.product_id = products.id").
-		Group("products.id, categories.name").
-		Order("order_count DESC").
-		Find(&products)
+	cat, _ := strconv.Atoi(c.Query("category"))
+	if cat == 0 {
+		var products []model.ViewProductList
+		ty := database.DB.Model(&model.Product{}).
+			Select("products.name, products.description, products.image_url, price, offer_amount, stock_left, rating_count, average_rating, categories.name AS category_name, COUNT(order_items.product_id) AS order_count").
+			Joins("JOIN categories ON categories.id = products.category_id").
+			Joins("LEFT JOIN order_items ON order_items.product_id = products.id").
+			Group("products.id, categories.name").
+			Order("order_count DESC").
+			Find(&products)
 
-	if ty.Error != nil {
-		c.JSON(http.StatusNotFound, gin.H{
-			"message": "failed to retrieve data from the products database, or the data doesn't exist",
-			"error":   ty.Error,
-		})
-		return
-	}
-	for _, val := range products {
+		if ty.Error != nil {
+			c.JSON(http.StatusNotFound, gin.H{
+				"message": "failed to retrieve data from the products database, or the data doesn't exist",
+				"error":   ty.Error,
+			})
+			return
+		}
+		for _, val := range products {
+			c.JSON(http.StatusOK, gin.H{
+				"products": val,
+			})
+		}
+	} else if categoryExist(cat) {
+		var products []model.ViewProductList
+		ty := database.DB.Model(&model.Product{}).Where("category_id=?", cat).
+			Select("products.name, products.description, products.image_url, price, offer_amount, stock_left, rating_count, average_rating, categories.name AS category_name, COUNT(order_items.product_id) AS order_count").
+			Joins("JOIN categories ON categories.id = products.category_id").
+			Joins("LEFT JOIN order_items ON order_items.product_id = products.id").
+			Group("products.id, categories.name").
+			Order("order_count DESC").
+			Find(&products)
+
+		if ty.Error != nil {
+			c.JSON(http.StatusNotFound, gin.H{
+				"message": "failed to retrieve data from the products database, or the data doesn't exist",
+				"error":   ty.Error,
+			})
+			return
+		}
+		for _, val := range products {
+			c.JSON(http.StatusOK, gin.H{
+				"products": val,
+			})
+		}
+	} else {
 		c.JSON(http.StatusOK, gin.H{
-			"products": val,
+			"Category": "Does not exist",
 		})
 	}
 }
 
 func SearchFeatured(c *gin.Context) {
-	var products []model.ViewProductList
-	ty := database.DB.Model(&model.Product{}).
-		Select("products.name, products.description, products.image_url, price, offer_amount, stock_left, rating_count, average_rating, categories.name AS category_name, COUNT(cart_items.product_id) AS cart_count").
-		Joins("JOIN categories ON categories.id = products.category_id").
-		Joins("LEFT JOIN cart_items ON cart_items.product_id = products.id").
-		Group("products.id, categories.name").
-		Order("cart_count DESC").
-		Find(&products)
+	cat, _ := strconv.Atoi(c.Query("category"))
+	if cat == 0 {
+		var products []model.ViewProductList
+		ty := database.DB.Model(&model.Product{}).
+			Select("products.name, products.description, products.image_url, price, offer_amount, stock_left, rating_count, average_rating, categories.name AS category_name, COUNT(cart_items.product_id) AS cart_count").
+			Joins("JOIN categories ON categories.id = products.category_id").
+			Joins("LEFT JOIN cart_items ON cart_items.product_id = products.id").
+			Group("products.id, categories.name").
+			Order("cart_count DESC").
+			Find(&products)
 
-	if ty.Error != nil {
-		c.JSON(http.StatusNotFound, gin.H{
-			"message": "failed to retrieve data from the products database, or the data doesn't exist",
-			"error":   ty.Error,
-		})
-		return
-	}
-	for _, val := range products {
+		if ty.Error != nil {
+			c.JSON(http.StatusNotFound, gin.H{
+				"message": "failed to retrieve data from the products database, or the data doesn't exist",
+				"error":   ty.Error,
+			})
+			return
+		}
+		for _, val := range products {
+			c.JSON(http.StatusOK, gin.H{
+				"products": val,
+			})
+		}
+	} else if categoryExist(cat) {
+		var products []model.ViewProductList
+		ty := database.DB.Model(&model.Product{}).Where("category_id=?", cat).
+			Select("products.name, products.description, products.image_url, price, offer_amount, stock_left, rating_count, average_rating, categories.name AS category_name, COUNT(cart_items.product_id) AS cart_count").
+			Joins("JOIN categories ON categories.id = products.category_id").
+			Joins("LEFT JOIN cart_items ON cart_items.product_id = products.id").
+			Group("products.id, categories.name").
+			Order("cart_count DESC").
+			Find(&products)
+
+		if ty.Error != nil {
+			c.JSON(http.StatusNotFound, gin.H{
+				"message": "failed to retrieve data from the products database, or the data doesn't exist",
+				"error":   ty.Error,
+			})
+			return
+		}
+		for _, val := range products {
+			c.JSON(http.StatusOK, gin.H{
+				"products": val,
+			})
+		}
+	} else {
 		c.JSON(http.StatusOK, gin.H{
-			"products": val,
+			"Category": "Does not exist",
 		})
 	}
+}
+
+func categoryExist(cat int) bool {
+	var category model.Category
+	if tx := database.DB.Model(&model.Category{}).Where("id=?", uint(cat)).First(&category); tx.Error != nil {
+		return false
+	}
+	return true
 }

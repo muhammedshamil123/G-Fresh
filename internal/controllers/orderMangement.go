@@ -9,8 +9,10 @@ import (
 	"g-fresh/internal/model"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/razorpay/razorpay-go"
 )
 
@@ -27,6 +29,7 @@ func AddOrder(c *gin.Context) {
 	methods := map[string]string{
 		"1": "COD",
 		"2": "Razorpay",
+		"3": "Wallet",
 	}
 
 	addressid := c.Query("aid")
@@ -96,6 +99,7 @@ func AddOrder(c *gin.Context) {
 		return
 	}
 	if placeOrder(order, carts) {
+
 		database.DB.Model(&model.CartItems{}).Where("user_id=?", order.UserID).Delete(&model.CartItems{})
 		if order.PaymentMethod == "Razorpay" {
 			o_id = order.OrderID
@@ -103,20 +107,72 @@ func AddOrder(c *gin.Context) {
 				"message": "Payement pending!",
 			})
 			return
+		} else if order.PaymentMethod == "Wallet" {
+			var wallet model.UserWalletHistory
+			if tx := database.DB.Model(&model.UserWalletHistory{}).Where("user_id=?", order.UserID).Last(&wallet); tx.Error != nil {
+				database.DB.Model(&model.Order{}).Where("order_id=?", order.OrderID).Delete(&model.Order{})
+				c.JSON(http.StatusInternalServerError, gin.H{
+					"message": "Insufficient wallet balance!",
+				})
+				return
+			}
+			if wallet.CurrentBalance < order.TotalAmount {
+				database.DB.Model(&model.Order{}).Where("order_id=?", order.OrderID).Delete(&model.Order{})
+				c.JSON(http.StatusInternalServerError, gin.H{
+					"message": "Insufficient wallet balance!",
+				})
+				return
+			}
+			newBalance := wallet.CurrentBalance - order.TotalAmount
+			newWallet := model.UserWalletHistory{
+				TransactionTime: time.Now(),
+				WalletPaymentID: uuid.New().String(),
+				UserID:          order.UserID,
+				Type:            "Outgoing",
+				Amount:          order.TotalAmount,
+				CurrentBalance:  newBalance,
+				OrderID:         strconv.Itoa(int(order.OrderID)),
+				Reason:          "Order Payement",
+			}
+			database.DB.Model(&model.UserWalletHistory{}).Create(&newWallet)
+			o_id = 0
+			payement := model.Payment{
+				OrderID:           strconv.Itoa(int(order.OrderID)),
+				WalletPaymentID:   newWallet.WalletPaymentID,
+				RazorpayOrderID:   "",
+				RazorpayPaymentID: "",
+				RazorpaySignature: "",
+				PaymentGateway:    "Wallet",
+				PaymentStatus:     "PAID",
+			}
+			database.DB.Model(&model.Payment{}).Create(&payement)
+			database.DB.Model(&model.Order{}).Where("order_id=?", order.OrderID).Update("payment_status", "PAID")
+			database.DB.Model(&model.Order{}).Where("order_id=?", order.OrderID).First(&order)
+			c.JSON(http.StatusOK, gin.H{
+				"message":        "Order Created!",
+				"order":          order,
+				"wallet balance": newWallet.CurrentBalance,
+			})
+			return
+		} else if order.PaymentMethod == "COD" {
+			o_id = 0
+			c.JSON(http.StatusOK, gin.H{
+				"message": "Order Created!",
+				"order":   order,
+			})
+			return
+		} else {
+			database.DB.Model(&model.Order{}).Where("order_id=?", order.OrderID).Delete(&model.Order{})
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"message": "Invalid payement method!",
+			})
+			return
 		}
-		o_id = 0
-		c.JSON(http.StatusOK, gin.H{
-			"message": "Order Created!",
-			"order":   order,
-		})
-		return
-
 	}
 	database.DB.Model(&model.Order{}).Where("order_id=?", order.OrderID).Delete(&model.Order{})
 	c.JSON(http.StatusInternalServerError, gin.H{
-		"message": "Error placing order order!",
+		"message": "Error placing order!",
 	})
-	return
 }
 
 func placeOrder(order model.Order, cart []model.CartItems) bool {
@@ -226,7 +282,7 @@ func ShowOrders(c *gin.Context) {
 			"product":       pro,
 		})
 	}
-	return
+
 }
 
 func CancelOrders(c *gin.Context) {
@@ -253,11 +309,16 @@ func CancelOrders(c *gin.Context) {
 		})
 		return
 	}
-
 	var oitem model.OrderItem
 	if tx := database.DB.Model(&model.OrderItem{}).Where("order_id=? AND user_id=? AND product_id=?", oid, userId, pid).First(&oitem); tx.Error != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"message": "Order item does not exist!",
+		})
+		return
+	}
+	if oitem.OrderStatus == "CANCELED" {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "Item cancelled already!",
 		})
 		return
 	}
@@ -267,7 +328,7 @@ func CancelOrders(c *gin.Context) {
 		})
 		return
 	}
-	order.ItemCount--
+	order.ItemCount -= 1
 	order.TotalAmount -= oitem.Amount
 
 	if tx := database.DB.Model(&model.Order{}).Where("order_id = ? AND user_id = ?", oid, userId).Updates(map[string]interface{}{"item_count": order.ItemCount, "total_amount": order.TotalAmount}); tx.Error != nil {
@@ -276,10 +337,48 @@ func CancelOrders(c *gin.Context) {
 		})
 		return
 	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Order Cancelled!",
-	})
+	if order.PaymentStatus == "PAID" {
+		var wallet model.UserWalletHistory
+		var cBallance float64
+		if tx := database.DB.Model(&model.UserWalletHistory{}).Where("user_id=?", order.UserID).Last(&wallet); tx.Error == nil {
+			cBallance = wallet.CurrentBalance
+			fmt.Println("no error", cBallance)
+		} else {
+			fmt.Println(tx.Error)
+		}
+		newBalance := cBallance + oitem.Amount
+		fmt.Println(newBalance, cBallance, order)
+		newWallet := model.UserWalletHistory{
+			TransactionTime: time.Now(),
+			WalletPaymentID: uuid.New().String(),
+			UserID:          order.UserID,
+			Type:            "Incoming",
+			Amount:          oitem.Amount,
+			CurrentBalance:  newBalance,
+			OrderID:         strconv.Itoa(int(order.OrderID)),
+			Reason:          "Order Cancel",
+		}
+		database.DB.Model(&model.UserWalletHistory{}).Create(&newWallet)
+		payement := model.Payment{
+			OrderID:           strconv.Itoa(int(order.OrderID)),
+			WalletPaymentID:   newWallet.WalletPaymentID,
+			RazorpayOrderID:   "",
+			RazorpayPaymentID: "",
+			RazorpaySignature: "",
+			PaymentGateway:    "Wallet",
+			PaymentStatus:     "REFUND",
+		}
+		database.DB.Model(&model.Payment{}).Create(&payement)
+		c.JSON(http.StatusOK, gin.H{
+			"message":        "Order Cancelled!",
+			"Refund":         "Success",
+			"wallet balance": newWallet.CurrentBalance,
+		})
+	} else {
+		c.JSON(http.StatusOK, gin.H{
+			"message": "Order Cancelled!",
+		})
+	}
 	var product model.Product
 	if tx := database.DB.Model(&model.Product{}).Where("id=?", pid).First(&product); tx.Error != nil {
 		fmt.Println("product does not exist")
@@ -288,7 +387,7 @@ func CancelOrders(c *gin.Context) {
 	if tx := database.DB.Model(&model.Product{}).Where("id=?", pid).Update("stock_left", product.StockLeft); tx.Error != nil {
 		fmt.Println("stock incerment failed")
 	}
-	return
+
 }
 
 func RenderRazorpay(c *gin.Context) {
@@ -321,7 +420,6 @@ func CreateOrder(c *gin.Context) {
 }
 
 func VerifyPayment(c *gin.Context) {
-	// Capture the Razorpay Payment ID and other details from the frontend
 	orderid := strconv.Itoa(int(o_id))
 	fmt.Println(orderid)
 	var paymentInfo struct {
@@ -335,10 +433,7 @@ func VerifyPayment(c *gin.Context) {
 		return
 	}
 	fmt.Println(paymentInfo)
-	// Get the Razorpay secret key from environment variables
 	secret := "XEPMrjfiphZjlQHlmlxmgWy6"
-
-	// Verify payment signature using HMAC-SHA256
 	if !verifySignature(paymentInfo.OrderID, paymentInfo.PaymentID, paymentInfo.Signature, secret) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid payment signature"})
 		return
@@ -357,23 +452,68 @@ func VerifyPayment(c *gin.Context) {
 	database.DB.Model(&model.Payment{}).Create(&payement)
 	database.DB.Model(&model.Order{}).Where("order_id=?", orderid).Update("payment_status", payement.PaymentStatus)
 	o_id = 0
-	// Payment verified
 	c.JSON(http.StatusOK, gin.H{"status": "Payment verified successfully"})
 }
 
 func verifySignature(orderID, paymentID, signature, secret string) bool {
-	// Concatenate the Razorpay Order ID and Payment ID
+
 	data := orderID + "|" + paymentID
-
-	// Create a new HMAC by defining the hash type and the secret key
 	h := hmac.New(sha256.New, []byte(secret))
-
-	// Write the data to the HMAC
 	h.Write([]byte(data))
-
-	// Get the computed HMAC in hex format
 	expectedSignature := hex.EncodeToString(h.Sum(nil))
-
-	// Compare the computed HMAC with the provided Razorpay signature
 	return expectedSignature == signature
+}
+
+func OrderReturn(c *gin.Context) {
+	user, exist := c.Get("email")
+	userId := 0
+	if !exist {
+		c.JSON(http.StatusNotFound, gin.H{
+			"message": "failed to retrieve data from the database, or the data doesn't exist",
+		})
+		return
+	}
+	if tx := database.DB.Model(&model.User{}).Select("id").Where("email = ?", user).First(&userId); tx.Error != nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"message": "User does not exists!",
+		})
+		return
+	}
+	oid := c.Query("orderid")
+	pid := c.Query("pid")
+	var order model.Order
+	if tx := database.DB.Model(&model.Order{}).Where("order_id=? AND user_id=?", oid, userId).First(&order); tx.Error != nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"message": "Order does not exist!",
+		})
+		return
+	}
+	var oitem model.OrderItem
+	if tx := database.DB.Model(&model.OrderItem{}).Where("order_id=? AND user_id=? AND product_id=?", oid, userId, pid).First(&oitem); tx.Error != nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"message": "Order item does not exist!",
+		})
+		return
+	}
+	if oitem.OrderStatus == "RETURNED" {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "Item returned already!",
+		})
+		return
+	}
+	if oitem.OrderStatus != "DELIVERED" {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "Item not delivered!",
+		})
+		return
+	}
+	if tx := database.DB.Model(&model.OrderItem{}).Where("order_id=? AND user_id=? AND product_id=?", oid, userId, pid).Update("order_status", "RETURN REQUEST"); tx.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "Return failed!",
+		})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Return Requested!",
+	})
 }

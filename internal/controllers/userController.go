@@ -26,7 +26,7 @@ func GetUserList(c *gin.Context) {
 			"users": val,
 		})
 	}
-	return
+
 }
 
 func BlockUser(c *gin.Context) {
