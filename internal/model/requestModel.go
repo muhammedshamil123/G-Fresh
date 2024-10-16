@@ -16,9 +16,10 @@ type UserEmailSignupRequest struct {
 	ConfirmPassword string `validate:"required" json:"confirmpassword"`
 }
 type AddCategoryList struct {
-	Name        string `json:"name"`
-	Description string `validate:"required" json:"description"`
-	ImageURL    string `validate:"required" json:"imageurl"`
+	Name            string `json:"name"`
+	Description     string `validate:"required" json:"description"`
+	ImageURL        string `validate:"required" json:"imageurl"`
+	OfferPercentage uint   `validate:"required" json:"offerpercentage"`
 }
 type AddProductsRequest struct {
 	CategoryID  uint    `validate:"required" json:"categoryid"`

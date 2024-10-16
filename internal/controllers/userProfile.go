@@ -247,7 +247,9 @@ func ShowCart(c *gin.Context) {
 			database.DB.Where("user_id=? AND product_id=?", user.ID, val.ProductID).Delete(&model.CartItems{})
 			continue
 		}
-		fmt.Println(products)
+		cat_offer := 0
+		database.DB.Model(&model.Category{}).Where("id=?", products.CategoryID).Select("offer_percentage").First(&cat_offer)
+		fmt.Println(cat_offer)
 		product := model.ViewCartList{
 			Name:        products.Name,
 			Description: products.Description,
@@ -272,14 +274,18 @@ func ShowCart(c *gin.Context) {
 				"quantity": val.Quantity,
 				"updation": "Quantity Decreased to Availability",
 			})
-			total += int(product.Price) * int(val.Quantity)
+			offer_amount := (product.OfferAmount * float64(cat_offer)) / 100
+			total += int(product.OfferAmount-offer_amount) * int(val.Quantity)
 			continue
 		}
 		c.JSON(http.StatusOK, gin.H{
-			"item":     product,
-			"quantity": val.Quantity,
+			"item":            product,
+			"quantity":        val.Quantity,
+			"category_offer%": cat_offer,
 		})
-		total += int(product.Price) * int(val.Quantity)
+
+		offer_amount := (product.OfferAmount * float64(cat_offer)) / 100
+		total += int(product.OfferAmount-offer_amount) * int(val.Quantity)
 	}
 	if len(cartItems) == 0 {
 		c.JSON(http.StatusOK, gin.H{

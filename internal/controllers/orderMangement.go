@@ -78,21 +78,31 @@ func AddOrder(c *gin.Context) {
 		State:        address.State,
 		PinCode:      address.PostalCode,
 	}
-	price := 0
+
 	for _, val := range carts {
 		order.ItemCount++
-		if tx := database.DB.Model(&model.Product{}).Select("price").Where("id=?", val.ProductID).First(&price); tx.Error != nil {
+		var offer float64
+		if tx := database.DB.Model(&model.Product{}).Select("offer_amount").Where("id=?", val.ProductID).First(&offer); tx.Error != nil {
 			c.JSON(http.StatusNotFound, gin.H{
-				"message": "Address does not exists!",
+				"message": "product does not exists!",
 			})
 			return
 		}
-		order.TotalAmount += float64(price * int(val.Quantity))
+		cid, cat_offer := 0, 0
+		database.DB.Model(&model.Product{}).Select("category_id").Where("id=?", val.ProductID).First(&cid)
+		database.DB.Model(&model.Category{}).Select("offer_percentage").Where("id=?", cid).First(&cat_offer)
+		cat_amount := (offer * float64(cat_offer)) / 100
+		order.TotalAmount += float64(int(offer-cat_amount) * int(val.Quantity))
 	}
 	order.PaymentMethod = methods[method]
 	order.PaymentStatus = "PENDING"
 	order.OrderStatus = "PLACED"
-
+	if order.PaymentMethod == "COD" && order.TotalAmount > 1000 {
+		c.JSON(http.StatusNotImplemented, gin.H{
+			"message": "Cash on delivery not available for order greater than 1000/-",
+		})
+		return
+	}
 	if tx := database.DB.Model(&model.Order{}).Create(&order); tx.Error != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"message": "Error creating order!",
@@ -179,14 +189,18 @@ func AddOrder(c *gin.Context) {
 func placeOrder(order model.Order, cart []model.CartItems) bool {
 	var orderitems []model.OrderItem
 	for _, val := range cart {
-		price := 0
-		database.DB.Model(&model.Product{}).Select("price").Where("id=?", val.ProductID).First(&price)
+		var offer float64
+		database.DB.Model(&model.Product{}).Select("offer_amount").Where("id=?", val.ProductID).First(&offer)
+		cid, cat_offer := 0, 0
+		database.DB.Model(&model.Product{}).Select("category_id").Where("id=?", val.ProductID).First(&cid)
+		database.DB.Model(&model.Category{}).Select("offer_percentage").Where("id=?", cid).First(&cat_offer)
+		cat_amount := (offer * float64(cat_offer)) / 100
 		orderitem := model.OrderItem{
 			OrderID:     order.OrderID,
 			UserID:      order.UserID,
 			ProductID:   val.ProductID,
 			Quantity:    val.Quantity,
-			Amount:      float64(price * int(val.Quantity)),
+			Amount:      float64((int(offer-cat_amount) * int(val.Quantity))),
 			OrderStatus: "PLACED",
 		}
 		if tx := database.DB.Model(&model.OrderItem{}).Create(&orderitem); tx.Error != nil {

@@ -13,7 +13,7 @@ func GetHome(c *gin.Context) {
 
 	var categories []model.ViewCategoryList
 	var products []model.ViewProductList
-	tx := database.DB.Model(&model.Category{}).Select("id, name, description, image_url").Find(&categories)
+	tx := database.DB.Model(&model.Category{}).Select("id, name, description, image_url,offer_percentage").Find(&categories)
 	if tx.Error != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"message": "failed to retrieve data from the category database, or the data doesn't exist",

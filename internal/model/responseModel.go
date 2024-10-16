@@ -11,16 +11,18 @@ type UserResponse struct {
 	Blocked     bool   `json:"blocked"`
 }
 type CategoryResponse struct {
-	ID          uint   `json:"id"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	ImageURL    string `json:"image_url"`
+	ID              uint   `json:"id"`
+	Name            string `json:"name"`
+	Description     string `json:"description"`
+	ImageURL        string `json:"image_url"`
+	OfferPercentage uint   `json:"offer_percentage"`
 }
 
 type ViewCategoryList struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	ImageURL    string `json:"image_url"`
+	Name            string `json:"name"`
+	Description     string `json:"description"`
+	ImageURL        string `json:"image_url"`
+	OfferPercentage uint   `json:"offer_percentage"`
 }
 
 type ProductResponse struct {

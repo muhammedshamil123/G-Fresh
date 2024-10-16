@@ -25,11 +25,12 @@ type User struct {
 
 type Category struct {
 	gorm.Model
-	ID          uint      `gorm:"column:id" json:"id"`
-	Name        string    `validate:"required" json:"name"`
-	Description string    `gorm:"column:description" validate:"required" json:"description"`
-	ImageURL    string    `gorm:"column:image_url" validate:"required" json:"image_url"`
-	Products    []Product `gorm:"foreignKey:CategoryID"`
+	ID              uint      `gorm:"column:id" json:"id"`
+	Name            string    `validate:"required" json:"name"`
+	Description     string    `gorm:"column:description" validate:"required" json:"description"`
+	ImageURL        string    `gorm:"column:image_url" validate:"required" json:"image_url"`
+	Products        []Product `gorm:"foreignKey:CategoryID"`
+	OfferPercentage uint      `gorm:"column:offer_percentage" json:"offer_percentage"`
 }
 type Product struct {
 	gorm.Model

@@ -11,7 +11,7 @@ import (
 
 func GetCategoryList(c *gin.Context) {
 	var categorylist []model.CategoryResponse
-	tx := database.DB.Model(&model.Category{}).Select("id, name, description, image_url").Find(&categorylist)
+	tx := database.DB.Model(&model.Category{}).Select("id, name, description, image_url,offer_percentage").Find(&categorylist)
 	if tx.Error != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"message": "failed to retrieve data from the database, or the data doesn't exist",
@@ -68,10 +68,11 @@ func AddCategory(c *gin.Context) {
 	}
 
 	cat := model.Category{
-		Name:        category.Name,
-		Description: category.Description,
-		ImageURL:    category.ImageURL,
-		Products:    nil,
+		Name:            category.Name,
+		Description:     category.Description,
+		ImageURL:        category.ImageURL,
+		OfferPercentage: category.OfferPercentage,
+		Products:        nil,
 	}
 	result := database.DB.Create(&cat)
 	if result.Error != nil {
@@ -158,6 +159,7 @@ func EditCategory(c *gin.Context) {
 	category.Name = form.Name
 	category.Description = form.Description
 	category.ImageURL = form.ImageURL
+	category.OfferPercentage = form.OfferPercentage
 
 	tx := database.DB.Save(&category)
 	if tx.Error != nil {
