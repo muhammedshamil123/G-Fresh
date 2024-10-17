@@ -14,6 +14,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/razorpay/razorpay-go"
+	"gorm.io/gorm"
 )
 
 var o_id uint
@@ -36,6 +37,7 @@ func AddOrder(c *gin.Context) {
 	method := c.Query("method")
 	user, exist := c.Get("email")
 	referral := c.Query("referral")
+	coupon := c.Query("coupon")
 	if !exist {
 		c.JSON(http.StatusNotFound, gin.H{
 			"message": "failed to retrieve data from the database, or the data doesn't exist",
@@ -92,8 +94,8 @@ func AddOrder(c *gin.Context) {
 			return
 		}
 		var referralhistory model.UserReferralHistory
-		database.DB.AutoMigrate(&model.UserReferralHistory{})
-		if tx := database.DB.Model(&model.UserReferralHistory{}).Where("user_id=?", order.UserID).First(&referralhistory); tx.Error != nil {
+		// database.DB.AutoMigrate(&model.UserReferralHistory{})
+		if tx := database.DB.Model(&model.UserReferralHistory{}).Where("user_id=? AND referral_code=?", order.UserID, referral).First(&referralhistory); tx.Error != nil {
 			newreferralhistory := model.UserReferralHistory{
 				UserID:       order.UserID,
 				ReferralCode: referral,
@@ -111,6 +113,48 @@ func AddOrder(c *gin.Context) {
 		refferaloffer = 2
 
 	}
+	var couponoffer, couponmin int
+	if coupon != "" {
+		var existCoupon model.CouponInventory
+		if tx := database.DB.Model(&model.CouponInventory{}).Where("coupon_code=?", coupon).First(&existCoupon); tx.Error != nil {
+			if tx.Error == gorm.ErrRecordNotFound {
+				c.JSON(http.StatusNotFound, gin.H{
+					"message": "Coupon not found!",
+				})
+				return
+			}
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": "error fetching coupon!",
+			})
+			return
+		}
+		if existCoupon.Expiry.Before(time.Now()) {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": "Coupon expired!",
+			})
+			return
+		}
+		var usage model.CouponUsage
+		if tx := database.DB.Model(&model.CouponUsage{}).Where("coupon_code=? AND user_id=?", coupon, order.UserID).First(&usage); tx.Error != nil {
+			if tx.Error != gorm.ErrRecordNotFound {
+				c.JSON(http.StatusNotFound, gin.H{
+					"message": "error fetching coupon usage!",
+				})
+				return
+			}
+		} else {
+			if usage.UsageCount >= existCoupon.MaximumUsage {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"message": "Coupon usage limit reached!",
+				})
+				return
+			}
+		}
+		couponmin = int(existCoupon.MinimumAmount)
+		couponoffer = int(existCoupon.Percentage)
+	}
+	println(couponoffer, couponmin)
+	order_total := 0
 	for _, val := range carts {
 		order.ItemCount++
 		var offer float64
@@ -126,13 +170,21 @@ func AddOrder(c *gin.Context) {
 
 		cat_amount := (offer * float64(cat_offer)) / 100
 		ref_amount := (offer * float64(refferaloffer)) / 100
-
-		order.TotalAmount += float64(int(offer-cat_amount-ref_amount) * int(val.Quantity))
+		coupon_amount := (offer * float64(couponoffer)) / 100
+		order_total += int(offer * float64(val.Quantity))
+		order.TotalAmount += float64(int(offer-cat_amount-ref_amount-coupon_amount) * int(val.Quantity))
 		fmt.Println(val.ProductID, " offer amount:", offer, " category_offer:", cat_amount, "refferal_offer:", ref_amount, "order_total:", order.TotalAmount)
 	}
-	if order.TotalAmount < 500 && referral != "" {
-		c.JSON(http.StatusNotFound, gin.H{
+	if order_total < 500 && referral != "" {
+		c.JSON(http.StatusBadRequest, gin.H{
 			"message": "Referral code cannot use order below 500!",
+		})
+		return
+	}
+	if order_total < couponmin && coupon != "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "Coupon code cannot use order below limit!",
+			"limit":   couponmin,
 		})
 		return
 	}
@@ -152,17 +204,34 @@ func AddOrder(c *gin.Context) {
 		})
 		return
 	}
-	if placeOrder(order, carts, refferaloffer) {
+	if placeOrder(order, carts, refferaloffer, couponoffer) {
 		if referral != "" {
 			database.DB.Model(&model.UserReferralHistory{}).Where("user_id=?", order.UserID).Update("refer_claimed", true)
 		}
-		database.DB.Model(&model.CartItems{}).Where("user_id=?", order.UserID).Delete(&model.CartItems{})
+		if coupon != "" {
+			var usage model.CouponUsage
+			if tx := database.DB.Model(&model.CouponUsage{}).Where("coupon_code=? AND user_id=?", coupon, order.UserID).First(&usage); tx.Error != nil {
+				if tx.Error == gorm.ErrRecordNotFound {
+					usage := model.CouponUsage{
+						UserID:     order.UserID,
+						CouponCode: coupon,
+						UsageCount: 1,
+					}
+					database.DB.Model(&model.CouponUsage{}).Create(&usage)
+				}
+			} else {
+				usage.UsageCount++
+				database.DB.Model(&model.CouponUsage{}).Where("coupon_code=? AND user_id=?", coupon, order.UserID).Update("usage_count", usage.UsageCount)
+			}
+		}
+
 		if order.PaymentMethod == "Razorpay" {
 			o_id = order.OrderID
 			c.JSON(http.StatusOK, gin.H{
 				"message": "Payement pending!",
 				"order":   order,
 			})
+			database.DB.Model(&model.CartItems{}).Where("user_id=?", order.UserID).Delete(&model.CartItems{})
 			return
 		} else if order.PaymentMethod == "Wallet" {
 			var wallet model.UserWalletHistory
@@ -210,6 +279,7 @@ func AddOrder(c *gin.Context) {
 				"order":          order,
 				"wallet balance": newWallet.CurrentBalance,
 			})
+			database.DB.Model(&model.CartItems{}).Where("user_id=?", order.UserID).Delete(&model.CartItems{})
 			return
 		} else if order.PaymentMethod == "COD" {
 			o_id = 0
@@ -217,6 +287,7 @@ func AddOrder(c *gin.Context) {
 				"message": "Order Created!",
 				"order":   order,
 			})
+			database.DB.Model(&model.CartItems{}).Where("user_id=?", order.UserID).Delete(&model.CartItems{})
 			return
 		} else {
 			database.DB.Model(&model.Order{}).Where("order_id=?", order.OrderID).Delete(&model.Order{})
@@ -232,7 +303,7 @@ func AddOrder(c *gin.Context) {
 	})
 }
 
-func placeOrder(order model.Order, cart []model.CartItems, referraloffer int) bool {
+func placeOrder(order model.Order, cart []model.CartItems, referraloffer, couponoffer int) bool {
 	var orderitems []model.OrderItem
 	for _, val := range cart {
 		var offer float64
@@ -242,12 +313,13 @@ func placeOrder(order model.Order, cart []model.CartItems, referraloffer int) bo
 		database.DB.Model(&model.Category{}).Select("offer_percentage").Where("id=?", cid).First(&cat_offer)
 		cat_amount := (offer * float64(cat_offer)) / 100
 		ref_amount := (offer * float64(referraloffer)) / 100
+		coupon_amount := (offer * float64(couponoffer)) / 100
 		orderitem := model.OrderItem{
 			OrderID:     order.OrderID,
 			UserID:      order.UserID,
 			ProductID:   val.ProductID,
 			Quantity:    val.Quantity,
-			Amount:      float64((int(offer-cat_amount-ref_amount) * int(val.Quantity))),
+			Amount:      float64((int(offer-cat_amount-ref_amount-coupon_amount) * int(val.Quantity))),
 			OrderStatus: "PLACED",
 		}
 		fmt.Println(orderitem.ProductID, " offer amount:", offer, " category_offer:", cat_amount, "refferal_offer:", ref_amount, "order_total:", orderitem.Amount)
@@ -542,7 +614,6 @@ func CancelOrders(c *gin.Context) {
 func RenderRazorpay(c *gin.Context) {
 	c.HTML(http.StatusOK, "razorpay.html", nil)
 }
-
 func CreateOrder(c *gin.Context) {
 	client := razorpay.NewClient("rzp_test_Mg8qA7Z2ycbKOB", "XEPMrjfiphZjlQHlmlxmgWy6")
 
@@ -558,7 +629,9 @@ func CreateOrder(c *gin.Context) {
 	if err != nil {
 		fmt.Println("Error creating Razorpay order:", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error creating order"})
+		deleteOrder(int(o_id))
 		return
+
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"order_id": razorpayOrder["id"],
@@ -579,12 +652,14 @@ func VerifyPayment(c *gin.Context) {
 
 	if err := c.BindJSON(&paymentInfo); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid payment information"})
+		deleteOrder(int(o_id))
 		return
 	}
 	fmt.Println(paymentInfo)
 	secret := "XEPMrjfiphZjlQHlmlxmgWy6"
 	if !verifySignature(paymentInfo.OrderID, paymentInfo.PaymentID, paymentInfo.Signature, secret) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid payment signature"})
+		deleteOrder(int(o_id))
 		return
 	}
 	// database.DB.AutoMigrate(&model.Payment{})
@@ -690,4 +765,17 @@ func OrderReturn(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Return Requested!",
 	})
+}
+
+func deleteOrder(order_id int) {
+	var order []model.OrderItem
+	database.DB.Model(&model.OrderItem{}).Where("order_id=?", order_id).Find(&order)
+	for _, val := range order {
+		var product model.Product
+		database.DB.Model(&model.Product{}).Where("id=?", val.ProductID).First(&product)
+		product.StockLeft += val.Quantity
+		database.DB.Model(&model.Product{}).Where("id=?", val.ProductID).Update("stock_left", product.StockLeft)
+	}
+	database.DB.Model(&model.Order{}).Where("order_id=?", order_id).Delete(&model.Order{})
+	database.DB.Model(&model.OrderItem{}).Where("order_id=?", order_id).Delete(&model.OrderItem{})
 }

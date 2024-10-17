@@ -44,6 +44,12 @@ func AdminRoutes(router *gin.Engine) {
 	router.GET("/admin/orders/return", controllers.AdminAuthorization(), controllers.ReturnRequests)
 	router.PATCH("/admin/orders/cancel/:pid/:orderid", controllers.AdminAuthorization(), controllers.CancelOrdersAdmin)
 	router.PATCH("/admin/orders/status/:pid/:orderid", controllers.AdminAuthorization(), controllers.ChangeStatus)
+
+	//coupons
+	router.GET("/admin/coupon", controllers.AdminAuthorization(), controllers.ShowCoupon)
+	router.POST("/admin/coupon/add", controllers.AdminAuthorization(), controllers.AddCoupon)
+	router.DELETE("/admin/coupon/delete/:code", controllers.AdminAuthorization(), controllers.DeleteCoupon)
+	router.PATCH("/admin/coupon/update/:code", controllers.AdminAuthorization(), controllers.EditCoupon)
 }
 
 func UserRoutes(router *gin.Engine) {
@@ -74,7 +80,7 @@ func UserRoutes(router *gin.Engine) {
 	router.DELETE("/user/wishlist/move/:pid/:quantity", controllers.UserAuthorization(), controllers.MoveToCart)
 
 	//cart
-	router.GET("/user/cart", controllers.UserAuthorization(), controllers.ShowCart)
+	router.GET("/user/cart/:referral/:coupon", controllers.UserAuthorization(), controllers.ShowCart)
 	router.POST("/user/cart/add/:pid/:quantity", controllers.UserAuthorization(), controllers.AddToCart)
 	router.DELETE("/user/cart/delete/:pid", controllers.UserAuthorization(), controllers.DeleteFromCart)
 
@@ -90,7 +96,7 @@ func UserRoutes(router *gin.Engine) {
 
 	//order
 	router.GET("/user/order", controllers.UserAuthorization(), controllers.ShowOrders)
-	router.POST("/user/order/:aid/:method/:referral", controllers.UserAuthorization(), controllers.AddOrder)
+	router.POST("/user/order/:aid/:method/:referral/:coupon", controllers.UserAuthorization(), controllers.AddOrder)
 	router.PATCH("/user/order/cancel/:pid/:orderid", controllers.UserAuthorization(), controllers.CancelOrders)
 	router.PATCH("/user/order/return/:pid/:orderid", controllers.UserAuthorization(), controllers.OrderReturn)
 	router.LoadHTMLGlob("templates/*")

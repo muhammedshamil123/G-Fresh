@@ -1,6 +1,8 @@
 package model
 
 import (
+	"encoding/json"
+	"fmt"
 	"time"
 
 	"gorm.io/gorm"
@@ -127,9 +129,45 @@ type UserWalletHistory struct {
 	TransactionTime time.Time `gorm:"autoCreateTime" json:"transaction_time"`
 	WalletPaymentID string    `gorm:"column:wallet_payment_id" json:"wallet_payment_id"`
 	UserID          uint      `gorm:"column:user_id" json:"user_id"`
-	Type            string    `gorm:"column:type" json:"type"` //incoming //outgoing
+	Type            string    `gorm:"column:type" json:"type"`
 	OrderID         string    `gorm:"column:order_id" json:"order_id"`
 	Amount          float64   `gorm:"column:amount" json:"amount"`
 	CurrentBalance  float64   `gorm:"column:current_balance" json:"current_balance"`
 	Reason          string    `gorm:"column:reason" json:"reason"`
+}
+
+type CouponInventory struct {
+	CouponCode    string    `validate:"required" json:"coupon_code" gorm:"primary_key"`
+	Expiry        time.Time `validate:"required" json:"expiry"`
+	Percentage    uint      `validate:"required" json:"percentage"`
+	MaximumUsage  uint      `validate:"required" json:"maximum_usage"`
+	MinimumAmount float64   `validate:"required" json:"minimum_amount"`
+}
+
+func (c *CouponInventory) UnmarshalJSON(data []byte) error {
+
+	type Alias CouponInventory
+	aux := &struct {
+		Expiry string `json:"expiry"`
+		*Alias
+	}{
+		Alias: (*Alias)(c),
+	}
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+	layout := "02-01-2006"
+	parsedTime, err := time.Parse(layout, aux.Expiry)
+	if err != nil {
+		return fmt.Errorf("invalid date format for expiry, use dd-mm-yyyy")
+	}
+	c.Expiry = parsedTime
+	return nil
+}
+
+type CouponUsage struct {
+	gorm.Model
+	UserID     uint   `json:"user_id"`
+	CouponCode string `json:"coupon_code"`
+	UsageCount uint   `json:"usage_count"`
 }

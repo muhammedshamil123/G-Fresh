@@ -6,9 +6,11 @@ import (
 	"g-fresh/internal/model"
 	"g-fresh/internal/utils"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
+	"gorm.io/gorm"
 )
 
 func ShowProfile(c *gin.Context) {
@@ -215,7 +217,8 @@ func ShowCart(c *gin.Context) {
 	var user model.User
 
 	email, exist := c.Get("email")
-
+	referral := c.Query("referral")
+	coupon := c.Query("coupon")
 	if !exist {
 		c.JSON(http.StatusNotFound, gin.H{
 			"message": "failed to retrieve data from the database, or the data doesn't exist",
@@ -236,7 +239,73 @@ func ShowCart(c *gin.Context) {
 		})
 		return
 	}
-	var total int
+	var refferaloffer int
+	var referredby uint
+	if referral != "" {
+		result := database.DB.Model(&model.User{}).Where("referral_code = ?", referral).Select("id").First(&referredby)
+		fmt.Println("reffered by:", referredby)
+
+		if result.Error != nil {
+			fmt.Println("Referral code not found or query error:", result.Error)
+			c.JSON(http.StatusNotFound, gin.H{
+				"message": "Referral code not found!",
+			})
+			return
+		}
+		var referralhistory model.UserReferralHistory
+		if tx := database.DB.Model(&model.UserReferralHistory{}).Where("user_id=? AND referral_code=?", user.ID, referral).First(&referralhistory); tx.Error != nil {
+			referralhistory.ReferClaimed = false
+		}
+		if referralhistory.ReferClaimed {
+			c.JSON(http.StatusNotFound, gin.H{
+				"message": "Referral already applied",
+			})
+			return
+		}
+		refferaloffer = 2
+	}
+
+	var couponoffer, couponmin int
+	if coupon != "" {
+		var existCoupon model.CouponInventory
+		if tx := database.DB.Model(&model.CouponInventory{}).Where("coupon_code=?", coupon).First(&existCoupon); tx.Error != nil {
+			if tx.Error == gorm.ErrRecordNotFound {
+				c.JSON(http.StatusNotFound, gin.H{
+					"message": "Coupon not found!",
+				})
+				return
+			}
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": "error fetching coupon!",
+			})
+			return
+		}
+		if existCoupon.Expiry.Before(time.Now()) {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": "Coupon expired!",
+			})
+			return
+		}
+		var usage model.CouponUsage
+		if tx := database.DB.Model(&model.CouponUsage{}).Where("coupon_code=? AND user_id=?", coupon, user.ID).First(&usage); tx.Error != nil {
+			if tx.Error != gorm.ErrRecordNotFound {
+				c.JSON(http.StatusNotFound, gin.H{
+					"message": "error fetching coupon usage!",
+				})
+				return
+			}
+		} else {
+			if usage.UsageCount >= existCoupon.MaximumUsage {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"message": "Coupon usage limit reached!",
+				})
+				return
+			}
+		}
+		couponmin = int(existCoupon.MinimumAmount)
+		couponoffer = int(existCoupon.Percentage)
+	}
+	var total, order_total int
 	for _, val := range cartItems {
 		var products model.Product
 
@@ -257,6 +326,8 @@ func ShowCart(c *gin.Context) {
 			OfferAmount: products.OfferAmount,
 			StockLeft:   products.StockLeft,
 		}
+		ref_amount := (product.OfferAmount * float64(refferaloffer)) / 100
+		coupon_amount := (product.OfferAmount * float64(couponoffer)) / 100
 		if product.StockLeft < val.Quantity {
 			if product.StockLeft <= 0 {
 				c.JSON(http.StatusNotModified, gin.H{
@@ -274,8 +345,10 @@ func ShowCart(c *gin.Context) {
 				"quantity": val.Quantity,
 				"updation": "Quantity Decreased to Availability",
 			})
+
+			order_total += int(product.OfferAmount * float64(val.Quantity))
 			offer_amount := (product.OfferAmount * float64(cat_offer)) / 100
-			total += int(product.OfferAmount-offer_amount) * int(val.Quantity)
+			total += int(product.OfferAmount-offer_amount-ref_amount-coupon_amount) * int(val.Quantity)
 			continue
 		}
 		c.JSON(http.StatusOK, gin.H{
@@ -283,13 +356,36 @@ func ShowCart(c *gin.Context) {
 			"quantity":        val.Quantity,
 			"category_offer%": cat_offer,
 		})
-
+		order_total += int(product.OfferAmount * float64(val.Quantity))
 		offer_amount := (product.OfferAmount * float64(cat_offer)) / 100
-		total += int(product.OfferAmount-offer_amount) * int(val.Quantity)
+		total += int(product.OfferAmount-offer_amount-ref_amount-coupon_amount) * int(val.Quantity)
 	}
 	if len(cartItems) == 0 {
 		c.JSON(http.StatusOK, gin.H{
 			"status": "Cart Empty",
+		})
+	}
+	if order_total < 500 && referral != "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "Referral code cannot use order below 500!",
+		})
+		return
+	}
+	if order_total < couponmin && coupon != "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "Coupon code cannot use order below limit!",
+			"limit":   couponmin,
+		})
+		return
+	}
+	if referral != "" {
+		c.JSON(http.StatusOK, gin.H{
+			"referral": "added",
+		})
+	}
+	if coupon != "" {
+		c.JSON(http.StatusOK, gin.H{
+			"coupon": coupon,
 		})
 	}
 	c.JSON(http.StatusOK, gin.H{
