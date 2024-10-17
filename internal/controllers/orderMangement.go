@@ -35,7 +35,7 @@ func AddOrder(c *gin.Context) {
 	addressid := c.Query("aid")
 	method := c.Query("method")
 	user, exist := c.Get("email")
-
+	referral := c.Query("referral")
 	if !exist {
 		c.JSON(http.StatusNotFound, gin.H{
 			"message": "failed to retrieve data from the database, or the data doesn't exist",
@@ -78,7 +78,39 @@ func AddOrder(c *gin.Context) {
 		State:        address.State,
 		PinCode:      address.PostalCode,
 	}
+	var refferaloffer int
+	var referredby uint
+	if referral != "" {
+		result := database.DB.Model(&model.User{}).Where("referral_code = ?", referral).Select("id").First(&referredby)
+		fmt.Println("reffered by:", referredby)
 
+		if result.Error != nil {
+			fmt.Println("Referral code not found or query error:", result.Error)
+			c.JSON(http.StatusNotFound, gin.H{
+				"message": "Referral code not found!",
+			})
+			return
+		}
+		var referralhistory model.UserReferralHistory
+		database.DB.AutoMigrate(&model.UserReferralHistory{})
+		if tx := database.DB.Model(&model.UserReferralHistory{}).Where("user_id=?", order.UserID).First(&referralhistory); tx.Error != nil {
+			newreferralhistory := model.UserReferralHistory{
+				UserID:       order.UserID,
+				ReferralCode: referral,
+				ReferredBy:   referredby,
+				ReferClaimed: false,
+			}
+			database.DB.Model(&model.UserReferralHistory{}).Create(&newreferralhistory)
+		}
+		if referralhistory.ReferClaimed {
+			c.JSON(http.StatusNotFound, gin.H{
+				"message": "Referral already applied",
+			})
+			return
+		}
+		refferaloffer = 2
+
+	}
 	for _, val := range carts {
 		order.ItemCount++
 		var offer float64
@@ -91,8 +123,18 @@ func AddOrder(c *gin.Context) {
 		cid, cat_offer := 0, 0
 		database.DB.Model(&model.Product{}).Select("category_id").Where("id=?", val.ProductID).First(&cid)
 		database.DB.Model(&model.Category{}).Select("offer_percentage").Where("id=?", cid).First(&cat_offer)
+
 		cat_amount := (offer * float64(cat_offer)) / 100
-		order.TotalAmount += float64(int(offer-cat_amount) * int(val.Quantity))
+		ref_amount := (offer * float64(refferaloffer)) / 100
+
+		order.TotalAmount += float64(int(offer-cat_amount-ref_amount) * int(val.Quantity))
+		fmt.Println(val.ProductID, " offer amount:", offer, " category_offer:", cat_amount, "refferal_offer:", ref_amount, "order_total:", order.TotalAmount)
+	}
+	if order.TotalAmount < 500 && referral != "" {
+		c.JSON(http.StatusNotFound, gin.H{
+			"message": "Referral code cannot use order below 500!",
+		})
+		return
 	}
 	order.PaymentMethod = methods[method]
 	order.PaymentStatus = "PENDING"
@@ -103,19 +145,23 @@ func AddOrder(c *gin.Context) {
 		})
 		return
 	}
+
 	if tx := database.DB.Model(&model.Order{}).Create(&order); tx.Error != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"message": "Error creating order!",
 		})
 		return
 	}
-	if placeOrder(order, carts) {
-
+	if placeOrder(order, carts, refferaloffer) {
+		if referral != "" {
+			database.DB.Model(&model.UserReferralHistory{}).Where("user_id=?", order.UserID).Update("refer_claimed", true)
+		}
 		database.DB.Model(&model.CartItems{}).Where("user_id=?", order.UserID).Delete(&model.CartItems{})
 		if order.PaymentMethod == "Razorpay" {
 			o_id = order.OrderID
 			c.JSON(http.StatusOK, gin.H{
 				"message": "Payement pending!",
+				"order":   order,
 			})
 			return
 		} else if order.PaymentMethod == "Wallet" {
@@ -186,7 +232,7 @@ func AddOrder(c *gin.Context) {
 	})
 }
 
-func placeOrder(order model.Order, cart []model.CartItems) bool {
+func placeOrder(order model.Order, cart []model.CartItems, referraloffer int) bool {
 	var orderitems []model.OrderItem
 	for _, val := range cart {
 		var offer float64
@@ -195,14 +241,16 @@ func placeOrder(order model.Order, cart []model.CartItems) bool {
 		database.DB.Model(&model.Product{}).Select("category_id").Where("id=?", val.ProductID).First(&cid)
 		database.DB.Model(&model.Category{}).Select("offer_percentage").Where("id=?", cid).First(&cat_offer)
 		cat_amount := (offer * float64(cat_offer)) / 100
+		ref_amount := (offer * float64(referraloffer)) / 100
 		orderitem := model.OrderItem{
 			OrderID:     order.OrderID,
 			UserID:      order.UserID,
 			ProductID:   val.ProductID,
 			Quantity:    val.Quantity,
-			Amount:      float64((int(offer-cat_amount) * int(val.Quantity))),
+			Amount:      float64((int(offer-cat_amount-ref_amount) * int(val.Quantity))),
 			OrderStatus: "PLACED",
 		}
+		fmt.Println(orderitem.ProductID, " offer amount:", offer, " category_offer:", cat_amount, "refferal_offer:", ref_amount, "order_total:", orderitem.Amount)
 		if tx := database.DB.Model(&model.OrderItem{}).Create(&orderitem); tx.Error != nil {
 			database.DB.Model(&model.OrderItem{}).Where("order_id=?", order.OrderID).Delete(&model.OrderItem{})
 			return false
@@ -249,7 +297,7 @@ func ShowOrders(c *gin.Context) {
 		return
 	}
 	var orders []model.OrderResponce
-	if tx := database.DB.Model(&model.Order{}).Select("order_id,item_count,total_amount,payment_method,payment_status,ordered_at,order_status").Where("user_id=?", userId).Find(&orders); tx.Error != nil {
+	if tx := database.DB.Model(&model.Order{}).Select("order_id,item_count,total_amount,payment_method,payment_status,ordered_at,order_status").Where("user_id=?", userId).Order("ordered_at DESC").Find(&orders); tx.Error != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"message": "Orders Empty!",
 		})

@@ -90,7 +90,7 @@ func UserRoutes(router *gin.Engine) {
 
 	//order
 	router.GET("/user/order", controllers.UserAuthorization(), controllers.ShowOrders)
-	router.POST("/user/order/:aid/:method", controllers.UserAuthorization(), controllers.AddOrder)
+	router.POST("/user/order/:aid/:method/:referral", controllers.UserAuthorization(), controllers.AddOrder)
 	router.PATCH("/user/order/cancel/:pid/:orderid", controllers.UserAuthorization(), controllers.CancelOrders)
 	router.PATCH("/user/order/return/:pid/:orderid", controllers.UserAuthorization(), controllers.OrderReturn)
 	router.LoadHTMLGlob("templates/*")

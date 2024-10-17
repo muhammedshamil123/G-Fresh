@@ -21,6 +21,14 @@ type User struct {
 	Picture        string `gorm:"column:picture;type:text" json:"picture"`
 	Blocked        bool   `gorm:"column:blocked;type:bool" json:"blocked"`
 	HashedPassword string `gorm:"column:hashed_password;type:varchar(255)" validate:"required" json:"hashed_password"`
+	ReferralCode   string `gorm:"column:referral_code" json:"referral_code"`
+}
+
+type UserReferralHistory struct {
+	UserID       uint   `gorm:"column:user_id" json:"user_id"`
+	ReferralCode string `gorm:"column:referral_code" json:"referral_code"`
+	ReferredBy   uint   `gorm:"column:referred_by" json:"referred_by"`
+	ReferClaimed bool   `gorm:"column:refer_claimed" json:"refer_claimed"`
 }
 
 type Category struct {

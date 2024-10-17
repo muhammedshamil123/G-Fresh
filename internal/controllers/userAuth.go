@@ -161,6 +161,7 @@ func UserSignupEmail(c *gin.Context) {
 		Picture:        "",
 		Blocked:        false,
 		HashedPassword: hPassword,
+		ReferralCode:   utils.GenerateReferralCode(),
 	}
 
 	otp, err := utils.GenerateOTP(6, 5*time.Minute)

@@ -15,7 +15,7 @@ import (
 func ShowOrdersAdmin(c *gin.Context) {
 
 	var orders []model.OrderResponce
-	if tx := database.DB.Model(&model.Order{}).Select("order_id,item_count,total_amount,payment_method,payment_status,ordered_at,order_status").Find(&orders); tx.Error != nil {
+	if tx := database.DB.Model(&model.Order{}).Select("order_id,item_count,total_amount,payment_method,payment_status,ordered_at,order_status").Order("ordered_at DESC").Find(&orders); tx.Error != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"message": "Orders Empty!",
 		})
@@ -29,14 +29,14 @@ func ShowOrdersAdmin(c *gin.Context) {
 		return
 	}
 	var userid []int
-	if tx := database.DB.Model(&model.Order{}).Select("user_id").Find(&userid); tx.Error != nil {
+	if tx := database.DB.Model(&model.Order{}).Select("user_id").Order("ordered_at DESC").Find(&userid); tx.Error != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"message": "Orders Empty!",
 		})
 		return
 	}
 	var add []model.ShippingAddress
-	if tx := database.DB.Model(&model.Order{}).Select("phone_number,street_name,street_number,city,state,pin_code").Find(&add); tx.Error != nil {
+	if tx := database.DB.Model(&model.Order{}).Select("phone_number,street_name,street_number,city,state,pin_code").Order("ordered_at DESC").Find(&add); tx.Error != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"message": "Orders Empty!",
 		})
