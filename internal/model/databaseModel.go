@@ -17,13 +17,14 @@ type Admin struct {
 
 type User struct {
 	gorm.Model
-	Name           string `gorm:"column:name;type:varchar(255)" validate:"required" json:"name"`
-	Email          string `gorm:"column:email;type:varchar(255);unique" validate:"required,email" json:"email"`
-	PhoneNumber    string `gorm:"column:phone_number;type:varchar(255);unique" validate:"number,min=1000000000,max=9999999999" json:"phone_number"`
-	Picture        string `gorm:"column:picture;type:text" json:"picture"`
-	Blocked        bool   `gorm:"column:blocked;type:bool" json:"blocked"`
-	HashedPassword string `gorm:"column:hashed_password;type:varchar(255)" validate:"required" json:"hashed_password"`
-	ReferralCode   string `gorm:"column:referral_code" json:"referral_code"`
+	Name           string  `gorm:"column:name;type:varchar(255)" validate:"required" json:"name"`
+	Email          string  `gorm:"column:email;type:varchar(255);unique" validate:"required,email" json:"email"`
+	PhoneNumber    string  `gorm:"column:phone_number;type:varchar(255);unique" validate:"number,min=1000000000,max=9999999999" json:"phone_number"`
+	Picture        string  `gorm:"column:picture;type:text" json:"picture"`
+	Blocked        bool    `gorm:"column:blocked;type:bool" json:"blocked"`
+	HashedPassword string  `gorm:"column:hashed_password;type:varchar(255)" validate:"required" json:"hashed_password"`
+	ReferralCode   string  `gorm:"column:referral_code" json:"referral_code"`
+	WalletAmount   float64 `gorm:"column:wallet_amount;type:double" json:"wallet_amount"`
 }
 
 type UserReferralHistory struct {
@@ -75,15 +76,18 @@ type CartItems struct {
 }
 
 type Order struct {
-	OrderID         uint            `json:"order_id" gorm:"autoCreateTime"`
-	UserID          uint            `validate:"required,number" json:"user_id"`
-	ShippingAddress ShippingAddress `gorm:"embedded" json:"shippingAddress"`
-	ItemCount       uint            `json:"item_count"`
-	TotalAmount     float64         `validate:"required,number" json:"total_amount"`
-	PaymentMethod   string          `validate:"required" json:"payment_method" gorm:"column:payment_method"`
-	PaymentStatus   string          `validate:"required" json:"payment_status" gorm:"column:payment_status"`
-	OrderedAt       time.Time       `gorm:"autoCreateTime" json:"ordered_at"`
-	OrderStatus     string          `validate:"required" json:"order_status" gorm:"column:order_status"`
+	OrderID              uint            `json:"order_id" gorm:"autoCreateTime"`
+	UserID               uint            `validate:"required,number" json:"user_id"`
+	ShippingAddress      ShippingAddress `gorm:"embedded" json:"shippingAddress"`
+	ItemCount            uint            `json:"item_count"`
+	TotalAmount          float64         `validate:"required,number" json:"total_amount"`
+	FinalAmount          float64         `validate:"required,number" json:"final_amount"`
+	PaymentMethod        string          `validate:"required" json:"payment_method" gorm:"column:payment_method"`
+	PaymentStatus        string          `validate:"required" json:"payment_status" gorm:"column:payment_status"`
+	OrderedAt            time.Time       `gorm:"autoCreateTime" json:"ordered_at"`
+	OrderStatus          string          `validate:"required" json:"order_status" gorm:"column:order_status"`
+	CouponDiscountAmount float64         `validate:"required,number" json:"coupon_discount_amount"`
+	ProductOfferAmount   float64         `validate:"required,number" json:"product_offer_amount"`
 }
 
 type OrderItem struct {

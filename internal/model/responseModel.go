@@ -3,12 +3,13 @@ package model
 import "time"
 
 type UserResponse struct {
-	ID          uint   `json:"id"`
-	Name        string `json:"name"`
-	Email       string `json:"email"`
-	PhoneNumber string `json:"phone_number"`
-	Picture     string `json:"picture"`
-	Blocked     bool   `json:"blocked"`
+	ID           uint   `json:"id"`
+	Name         string `json:"name"`
+	Email        string `json:"email"`
+	PhoneNumber  string `json:"phone_number"`
+	Picture      string `json:"picture"`
+	Blocked      bool   `json:"blocked"`
+	ReferralCode string `json:"referral_code"`
 }
 type CategoryResponse struct {
 	ID              uint   `json:"id"`
@@ -70,13 +71,16 @@ type GoogleResponse struct {
 }
 
 type OrderResponce struct {
-	OrderID       uint      `json:"order_id"`
-	ItemCount     uint      `json:"item_count"`
-	TotalAmount   float64   `json:"total_amount"`
-	PaymentMethod string    `json:"payment_method"`
-	PaymentStatus string    `json:"payment_status"`
-	OrderedAt     time.Time `json:"ordered_at"`
-	OrderStatus   string    `json:"order_status"`
+	OrderID              uint      `json:"order_id"`
+	ItemCount            uint      `json:"item_count"`
+	TotalAmount          float64   `json:"total_amount"`
+	FinalAmount          float64   `json:"final_amount"`
+	PaymentMethod        string    `json:"payment_method"`
+	PaymentStatus        string    `json:"payment_status"`
+	OrderedAt            time.Time `json:"ordered_at"`
+	OrderStatus          string    `json:"order_status"`
+	CouponDiscountAmount float64   `json:"coupon_discount_amount"`
+	ProductOfferAmount   float64   `json:"product_offer_amount"`
 }
 
 type OrderItemResponse struct {
@@ -101,4 +105,23 @@ type ViewOrderProductList struct {
 	ImageURL    string  `json:"image_url"`
 	Price       float64 `json:"price"`
 	OfferAmount float64 `json:"offer_amount"`
+}
+
+type OrderCount struct {
+	TotalOrder          uint `json:"total_order"`
+	TotalPLACED         uint `json:"total_placed"`
+	TotalCONFIRMED      uint `json:"total_confirmed"`
+	TotalSHIPPED        uint `json:"total_shipped"`
+	TotalOUTFORDELIVERY uint `json:"total_out_for_delivery"`
+	TotalDELIVERED      uint `json:"total_delivered"`
+	TotalCANCELED       uint `json:"total_cancelled"`
+	TotalRETURNREQUEST  uint `json:"total_return_request"`
+	TotalRETURNED       uint `json:"total_returned"`
+}
+
+type AmountInformation struct {
+	TotalCouponDeduction       float64 `json:"total_coupon_deduction"`
+	TotalProductOfferDeduction float64 `json:"total_product_offer_deduction"`
+	TotalAmountBeforeDeduction float64 `json:"total_amount_before_deduction"`
+	TotalAmountAfterDeduction  float64 `json:"total_amount_after_deduction"`
 }

@@ -50,6 +50,10 @@ func AdminRoutes(router *gin.Engine) {
 	router.POST("/admin/coupon/add", controllers.AdminAuthorization(), controllers.AddCoupon)
 	router.DELETE("/admin/coupon/delete/:code", controllers.AdminAuthorization(), controllers.DeleteCoupon)
 	router.PATCH("/admin/coupon/update/:code", controllers.AdminAuthorization(), controllers.EditCoupon)
+
+	//salesReport
+	router.POST("/admin/sales/:download", controllers.AdminAuthorization(), controllers.SalesReport)
+	// router.GET("/admin/sales/report", controllers.AdminAuthorization(), controllers.GeneratePDFReport)
 }
 
 func UserRoutes(router *gin.Engine) {

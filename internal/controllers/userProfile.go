@@ -26,7 +26,7 @@ func ShowProfile(c *gin.Context) {
 		return
 	}
 
-	if tx := database.DB.Model(&model.User{}).Select("id, name, email, phone_number,picture,blocked").Where("email = ?", user).First(&userDetails); tx.Error != nil {
+	if tx := database.DB.Model(&model.User{}).Select("id, name, email, phone_number,picture,blocked,referral_code").Where("email = ?", user).First(&userDetails); tx.Error != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"message": "User does not exists!",
 		})
@@ -242,7 +242,7 @@ func ShowCart(c *gin.Context) {
 	var refferaloffer int
 	var referredby uint
 	if referral != "" {
-		result := database.DB.Model(&model.User{}).Where("referral_code = ?", referral).Select("id").First(&referredby)
+		result := database.DB.Model(&model.User{}).Where("referral_code = ? AND id <> ?", referral, user.ID).Select("id").First(&referredby)
 		fmt.Println("reffered by:", referredby)
 
 		if result.Error != nil {
@@ -253,7 +253,7 @@ func ShowCart(c *gin.Context) {
 			return
 		}
 		var referralhistory model.UserReferralHistory
-		if tx := database.DB.Model(&model.UserReferralHistory{}).Where("user_id=? AND referral_code=?", user.ID, referral).First(&referralhistory); tx.Error != nil {
+		if tx := database.DB.Model(&model.UserReferralHistory{}).Where("user_id=?", user.ID).First(&referralhistory); tx.Error != nil {
 			referralhistory.ReferClaimed = false
 		}
 		if referralhistory.ReferClaimed {

@@ -15,7 +15,7 @@ import (
 func ShowOrdersAdmin(c *gin.Context) {
 
 	var orders []model.OrderResponce
-	if tx := database.DB.Model(&model.Order{}).Select("order_id,item_count,total_amount,payment_method,payment_status,ordered_at,order_status").Order("ordered_at DESC").Find(&orders); tx.Error != nil {
+	if tx := database.DB.Model(&model.Order{}).Select("order_id,item_count,total_amount,final_amount,payment_method,payment_status,ordered_at,order_status,coupon_discount_amount,product_offer_amount").Order("ordered_at DESC").Find(&orders); tx.Error != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"message": "Orders Empty!",
 		})
@@ -131,12 +131,14 @@ func CancelOrdersAdmin(c *gin.Context) {
 				PaymentStatus:     "REFUND",
 			}
 			database.DB.Model(&model.Payment{}).Create(&payement)
+			database.DB.Model(&model.Order{}).Where("order_id=?", order.OrderID).Update("payment_status", "REFUND")
 			c.JSON(http.StatusOK, gin.H{
 				"message":        "Order Cancelled!",
 				"Refund":         "Success",
 				"wallet balance": newWallet.CurrentBalance,
 			})
 		} else {
+			database.DB.Model(&model.Order{}).Where("order_id=?", order.OrderID).Update("payment_status", "CANCELED")
 			c.JSON(http.StatusOK, gin.H{
 				"message": "Order Cancelled!",
 			})
@@ -223,7 +225,9 @@ func CancelOrdersAdmin(c *gin.Context) {
 			OrderID:         strconv.Itoa(int(order.OrderID)),
 			Reason:          "Order Cancel",
 		}
+
 		database.DB.Model(&model.UserWalletHistory{}).Create(&newWallet)
+		database.DB.Model(&model.User{}).Where("id=?", order.UserID).Update("wallet_amount", newWallet.CurrentBalance)
 		payement := model.Payment{
 			OrderID:           strconv.Itoa(int(order.OrderID)),
 			WalletPaymentID:   newWallet.WalletPaymentID,
@@ -234,6 +238,7 @@ func CancelOrdersAdmin(c *gin.Context) {
 			PaymentStatus:     "REFUND",
 		}
 		database.DB.Model(&model.Payment{}).Create(&payement)
+		database.DB.Model(&model.Order{}).Where("order_id=?", order.OrderID).Update("payment_status", "REFUND")
 		c.JSON(http.StatusOK, gin.H{
 			"message":        "Order Cancelled!",
 			"Refund":         "Success",
@@ -242,6 +247,7 @@ func CancelOrdersAdmin(c *gin.Context) {
 		return
 	}
 
+	database.DB.Model(&model.Order{}).Where("order_id=?", order.OrderID).Update("payment_status", "CANCELED")
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Order Cancelled!",
 	})
@@ -306,6 +312,7 @@ func ChangeStatus(c *gin.Context) {
 			PaymentStatus:     "PAID",
 		}
 		database.DB.Model(&model.Payment{}).Create(&payement)
+		database.DB.Model(&model.Order{}).Where("order_id=?", order.OrderID).Update("payment_status", "PAID")
 		c.JSON(http.StatusOK, gin.H{
 			"message":         "Order Delivered!",
 			"Payement Status": "PAID",
@@ -363,6 +370,7 @@ func ChangeStatus(c *gin.Context) {
 			Reason:          "Order Return",
 		}
 		database.DB.Model(&model.UserWalletHistory{}).Create(&newWallet)
+		database.DB.Model(&model.User{}).Where("id=?", order.UserID).Update("wallet_amount", newWallet.CurrentBalance)
 		payement := model.Payment{
 			OrderID:           strconv.Itoa(int(order.OrderID)),
 			WalletPaymentID:   newWallet.WalletPaymentID,
@@ -373,6 +381,7 @@ func ChangeStatus(c *gin.Context) {
 			PaymentStatus:     "REFUND",
 		}
 		database.DB.Model(&model.Payment{}).Create(&payement)
+		database.DB.Model(&model.Order{}).Where("order_id=?", order.OrderID).Update("payment_status", "REFUND")
 		c.JSON(http.StatusOK, gin.H{
 			"message": "Order Returned!",
 			"Refund":  "Success",
@@ -410,7 +419,7 @@ func ChangeStatus(c *gin.Context) {
 
 func ReturnRequests(c *gin.Context) {
 	var orders []model.OrderResponce
-	if tx := database.DB.Model(&model.Order{}).Select("order_id,item_count,total_amount,payment_method,payment_status,ordered_at").Find(&orders); tx.Error != nil {
+	if tx := database.DB.Model(&model.Order{}).Select("order_id,item_count,total_amount,final_amount,payment_method,payment_status,ordered_at,coupon_discount_amount,product_offer_amount").Find(&orders); tx.Error != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"message": "Orders Empty!",
 		})

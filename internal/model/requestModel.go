@@ -62,3 +62,10 @@ type RazorpayPayment struct {
 	OrderID   string `form:"razorpay_order_id" binding:"required" json:"razorpay_order_id"`
 	Signature string `form:"razorpay_signature" binding:"required" json:"razorpay_signature"`
 }
+
+type PlatformSalesReportInput struct {
+	StartDate     string `json:"start_date,omitempty" time_format:"2006-01-02"`
+	EndDate       string `json:"end_date,omitempty" time_format:"2006-01-02"`
+	Limit         string `json:"limit,omitempty"`
+	PaymentStatus string `json:"payment_status"`
+}
