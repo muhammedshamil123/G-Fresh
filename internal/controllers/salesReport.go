@@ -64,7 +64,7 @@ func SalesReport(c *gin.Context) {
 			return
 		}
 		if download == "true" {
-			pdfBytes, err := GeneratePDFReport(result, amount)
+			pdfBytes, err := GeneratePDFReport(result, amount, startDate, endDate, input.PaymentStatus)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{
 					"status":  false,
@@ -95,7 +95,7 @@ func SalesReport(c *gin.Context) {
 	}
 
 	if download == "true" {
-		pdfBytes, err := GeneratePDFReport(result, amount)
+		pdfBytes, err := GeneratePDFReport(result, amount, input.StartDate, input.EndDate, input.PaymentStatus)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"status":  false,
@@ -106,7 +106,7 @@ func SalesReport(c *gin.Context) {
 		}
 
 		c.Writer.Header().Set("Content-type", "application/pdf")
-		c.Writer.Header().Set("Content-Disposition", "inline; filename=invoice.pdf") //https://blog.devgenius.io/tutorial-creating-an-endpoint-to-download-files-using-golang-and-gin-gonic-27abbcf75940
+		c.Writer.Header().Set("Content-Disposition", "inline; filename=invoice.pdf")
 		c.Writer.Write(pdfBytes)
 	}
 	c.JSON(http.StatusOK, gin.H{
@@ -183,65 +183,79 @@ func RoundDecimalValue(value float64) float64 {
 	multiplier := math.Pow(10, 2)
 	return math.Round(value*multiplier) / multiplier
 }
-func GeneratePDFReport(result model.OrderCount, amount model.AmountInformation) ([]byte, error) {
+func GeneratePDFReport(result model.OrderCount, amount model.AmountInformation, start, end, PaymentStatus string) ([]byte, error) {
 	pdf := gofpdf.New("P", "mm", "Tabloid", "")
 	// Add a page
 	pdf.AddPage()
 
 	// Set font
-	pdf.SetFont("Arial", "B", 12)
+	pdf.SetFont("Arial", "B", 20)
 	// Title
+
+	pdf.SetTextColor(0, 0, 255)
+	pdf.Cell(100, 10, "")
 	pdf.Cell(40, 10, "Sales Report")
 	pdf.Ln(20)
 
-	// Table header
-	pdf.SetFont("Arial", "B", 10)
-	pdf.Cell(30, 10, "Total Order")
-	pdf.Cell(30, 10, "Placed")
-	pdf.Cell(30, 10, "Confirmed")
-	pdf.Cell(30, 10, "Shipped")
-	pdf.Cell(30, 10, "Out For Delivery")
-	pdf.Cell(30, 10, "Delivered")
-	pdf.Cell(30, 10, "Cancelled")
-	pdf.Cell(30, 10, "Return Request")
-	pdf.Cell(30, 10, "Returned")
-	pdf.Ln(10)
+	pdf.SetTextColor(0, 0, 0)
+	pdf.SetFont("Arial", "B", 12)
+	pdf.Cell(40, 10, fmt.Sprintf("Payment status: %v", PaymentStatus))
+	pdf.Ln(20)
 
-	// Table body
+	pdf.Cell(50, 10, fmt.Sprintf("Start Date: %v", start))
+	pdf.Cell(50, 10, fmt.Sprintf("End Date: %v", end))
+	pdf.Ln(20)
+
+	// Table header with borders
+	pdf.SetFont("Arial", "B", 13)
+	pdf.CellFormat(50, 10, "Total Order", "1", 0, "C", false, 0, "")
+	pdf.CellFormat(50, 10, "Placed", "1", 0, "C", false, 0, "")
+	pdf.CellFormat(50, 10, "Confirmed", "1", 0, "C", false, 0, "")
+	pdf.CellFormat(50, 10, "Shipped", "1", 0, "C", false, 0, "")
+	pdf.CellFormat(60, 10, "Out For Delivery", "1", 1, "C", false, 0, "") // '1' at the end moves to a new line
+
+	// Table body with borders
 	pdf.SetFont("Arial", "", 12)
-	pdf.Cell(30, 10, fmt.Sprintf("%v", result.TotalOrder))
-	pdf.Cell(30, 10, fmt.Sprintf("%v", result.TotalPLACED))
-	pdf.Cell(30, 10, fmt.Sprintf("%v", result.TotalCONFIRMED))
-	pdf.Cell(30, 10, fmt.Sprintf("%v", result.TotalSHIPPED))
-	pdf.Cell(30, 10, fmt.Sprintf("%v", result.TotalOUTFORDELIVERY))
-	pdf.Cell(30, 10, fmt.Sprintf("%v", result.TotalDELIVERED))
-	pdf.Cell(30, 10, fmt.Sprintf("%v", result.TotalCANCELED))
-	pdf.Cell(30, 10, fmt.Sprintf("%v", result.TotalRETURNREQUEST))
-	pdf.Cell(30, 10, fmt.Sprintf("%v", result.TotalRETURNED))
-	pdf.Ln(10)
+	pdf.CellFormat(50, 10, fmt.Sprintf("%v", result.TotalOrder), "1", 0, "C", false, 0, "")
+	pdf.CellFormat(50, 10, fmt.Sprintf("%v", result.TotalPLACED), "1", 0, "C", false, 0, "")
+	pdf.CellFormat(50, 10, fmt.Sprintf("%v", result.TotalCONFIRMED), "1", 0, "C", false, 0, "")
+	pdf.CellFormat(50, 10, fmt.Sprintf("%v", result.TotalSHIPPED), "1", 0, "C", false, 0, "")
+	pdf.CellFormat(60, 10, fmt.Sprintf("%v", result.TotalOUTFORDELIVERY), "1", 1, "C", false, 0, "")
 
-	//total amount before deduction
+	// Next row of the table
+	pdf.Ln(20)
+	pdf.SetFont("Arial", "B", 13)
+	pdf.CellFormat(70, 10, "Delivered", "1", 0, "C", false, 0, "")
+	pdf.CellFormat(60, 10, "Cancelled", "1", 0, "C", false, 0, "")
+	pdf.CellFormat(60, 10, "Return Request", "1", 0, "C", false, 0, "")
+	pdf.CellFormat(70, 10, "Returned", "1", 1, "C", false, 0, "")
+
+	// Table body for the second row
+	pdf.SetFont("Arial", "", 12)
+	pdf.CellFormat(70, 10, fmt.Sprintf("%v", result.TotalDELIVERED), "1", 0, "C", false, 0, "")
+	pdf.CellFormat(60, 10, fmt.Sprintf("%v", result.TotalCANCELED), "1", 0, "C", false, 0, "")
+	pdf.CellFormat(60, 10, fmt.Sprintf("%v", result.TotalRETURNREQUEST), "1", 0, "C", false, 0, "")
+	pdf.CellFormat(70, 10, fmt.Sprintf("%v", result.TotalRETURNED), "1", 1, "C", false, 0, "")
+
+	pdf.Ln(30)
+
 	pdf.Ln(10)
 	pdf.SetFont("Arial", "B", 12)
-	pdf.Cell(40, 10, fmt.Sprintf("Total Amount Before Deduction: %.2f", amount.TotalAmountBeforeDeduction))
-	pdf.Ln(10)
+	pdf.Cell(40, 10, fmt.Sprintf("Total Amount Before Deduction:    %.2f", amount.TotalAmountBeforeDeduction))
+	pdf.Ln(20)
 
-	//coupon discount
-	pdf.SetTextColor(255, 0, 0) //red for discount
-	pdf.Cell(40, 10, fmt.Sprintf("Total Coupon Discount Amount: %.2f", amount.TotalCouponDeduction))
-	pdf.Ln(10)
+	pdf.SetTextColor(255, 0, 0)
+	pdf.Cell(40, 10, fmt.Sprintf("Total Coupon Discount Amount:     %.2f", amount.TotalCouponDeduction))
+	pdf.Ln(20)
 
-	//product disocunt
-	pdf.Cell(40, 10, fmt.Sprintf("Total Product Discount Amount: %.2f", amount.TotalProductOfferDeduction))
-	pdf.Ln(10)
-	pdf.SetTextColor(0, 0, 0) //reset to black
+	pdf.Cell(40, 10, fmt.Sprintf("Total Product Discount Amount:    %.2f", amount.TotalProductOfferDeduction))
+	pdf.Ln(20)
+	pdf.SetTextColor(0, 0, 0)
 
-	//final amount after dicounts
 	pdf.SetFont("Arial", "B", 12)
-	pdf.Cell(40, 10, fmt.Sprintf("Total Amount After Deduction: %.2f", amount.TotalAmountAfterDeduction))
-	pdf.Ln(10)
+	pdf.Cell(40, 10, fmt.Sprintf("Total Amount After Deduction:     %.2f", amount.TotalAmountAfterDeduction))
+	pdf.Ln(20)
 
-	// Reset font settings
 	pdf.SetFont("Arial", "", 12)
 
 	var pdfBytes bytes.Buffer
@@ -252,3 +266,5 @@ func GeneratePDFReport(result model.OrderCount, amount model.AmountInformation) 
 
 	return pdfBytes.Bytes(), nil
 }
+
+//https://blog.devgenius.io/tutorial-creating-an-endpoint-to-download-files-using-golang-and-gin-gonic-27abbcf75940
