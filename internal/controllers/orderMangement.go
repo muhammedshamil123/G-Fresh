@@ -50,7 +50,6 @@ func AddOrder(c *gin.Context) {
 		})
 		return
 	}
-
 	if tx := database.DB.Model(&model.CartItems{}).Where("user_id=?", userId).Find(&carts); tx.Error != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"message": "Cart items does not exists!",
@@ -80,7 +79,7 @@ func AddOrder(c *gin.Context) {
 		State:        address.State,
 		PinCode:      address.PostalCode,
 	}
-	var refferaloffer float64
+	var refferaloffer int
 	var referredby uint
 	if referral != "" {
 		result := database.DB.Model(&model.User{}).Where("referral_code = ? AND id <> ?", referral, order.UserID).Select("id").First(&referredby)
@@ -113,7 +112,7 @@ func AddOrder(c *gin.Context) {
 		refferaloffer = 2
 
 	}
-	var couponoffer, couponmin float64
+	var couponoffer, couponmin, couponmax int
 	if coupon != "" {
 		var existCoupon model.CouponInventory
 		if tx := database.DB.Model(&model.CouponInventory{}).Where("coupon_code=?", coupon).First(&existCoupon); tx.Error != nil {
@@ -150,11 +149,12 @@ func AddOrder(c *gin.Context) {
 				return
 			}
 		}
-		couponmin = existCoupon.MinimumAmount
-		couponoffer = float64(existCoupon.Percentage)
+		couponmin = int(existCoupon.MinimumAmount)
+		couponmax = int(existCoupon.MaximumAmount)
+		couponoffer = int(existCoupon.Percentage)
 	}
-	println(couponoffer, couponmin)
-	order_total := 0.00
+	println("hi", couponoffer, couponmin, couponmax)
+	order_total := 0
 	for _, val := range carts {
 		order.ItemCount++
 		var offer, price float64
@@ -176,12 +176,12 @@ func AddOrder(c *gin.Context) {
 
 		cat_amount := (price * float64(cat_offer)) / 100
 		ref_amount := (price * float64(refferaloffer)) / 100
-		coupon_amount := (price * couponoffer) / 100
-		order_total += price * float64(val.Quantity)
+		coupon_amount := (price * float64(couponoffer)) / 100
+		order_total += int(price * float64(val.Quantity))
 		order.ProductOfferAmount += (cat_amount + (price - offer)) * float64(val.Quantity)
 		order.CouponDiscountAmount += (ref_amount + coupon_amount) * float64(val.Quantity)
 		order.FinalAmount += price * float64(val.Quantity)
-		order.TotalAmount += (offer - cat_amount - ref_amount - coupon_amount) * float64(val.Quantity)
+		order.TotalAmount += float64(int((offer - cat_amount - ref_amount - coupon_amount) * float64(val.Quantity)))
 		fmt.Println(val.ProductID, " offer amount:", offer, " category_offer:", cat_amount, "refferal_offer:", ref_amount, "order_total:", order.TotalAmount)
 	}
 	if order_total < 500 && referral != "" {
@@ -190,10 +190,17 @@ func AddOrder(c *gin.Context) {
 		})
 		return
 	}
-	if order_total < float64(couponmin) && coupon != "" {
+	if order_total < couponmin && coupon != "" {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"message": "Coupon code cannot use order below limit!",
 			"limit":   couponmin,
+		})
+		return
+	}
+	if order_total > couponmax && coupon != "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "Coupon code cannot use order above limit!",
+			"limit":   couponmax,
 		})
 		return
 	}
@@ -206,7 +213,10 @@ func AddOrder(c *gin.Context) {
 		})
 		return
 	}
-
+	order.CouponDiscountAmount = RoundDecimalValue(order.CouponDiscountAmount)
+	order.FinalAmount = RoundDecimalValue(order.FinalAmount)
+	order.TotalAmount = RoundDecimalValue(order.TotalAmount)
+	order.ProductOfferAmount = RoundDecimalValue(order.ProductOfferAmount)
 	if tx := database.DB.Model(&model.Order{}).Create(&order); tx.Error != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"message": "Error creating order!",
@@ -236,6 +246,7 @@ func AddOrder(c *gin.Context) {
 
 		if order.PaymentMethod == "Razorpay" {
 			o_id = order.OrderID
+
 			c.JSON(http.StatusOK, gin.H{
 				"message": "Payement pending!",
 				"order":   order,
@@ -250,14 +261,6 @@ func AddOrder(c *gin.Context) {
 				})
 				return
 			}
-			// var wallet model.UserWalletHistory
-			// if tx := database.DB.Model(&model.UserWalletHistory{}).Where("user_id=?", order.UserID).Last(&wallet); tx.Error != nil {
-			// 	database.DB.Model(&model.Order{}).Where("order_id=?", order.OrderID).Delete(&model.Order{})
-			// 	c.JSON(http.StatusInternalServerError, gin.H{
-			// 		"message": "Insufficient wallet balance!",
-			// 	})
-			// 	return
-			// }
 			if user.WalletAmount < order.TotalAmount {
 				database.DB.Model(&model.Order{}).Where("order_id=?", order.OrderID).Delete(&model.Order{})
 				c.JSON(http.StatusInternalServerError, gin.H{
@@ -289,6 +292,7 @@ func AddOrder(c *gin.Context) {
 				RazorpaySignature: "",
 				PaymentGateway:    "Wallet",
 				PaymentStatus:     "PAID",
+				Amount:            order.TotalAmount,
 			}
 			database.DB.Model(&model.Payment{}).Create(&payement)
 			database.DB.Model(&model.Order{}).Where("order_id=?", order.OrderID).Update("payment_status", "PAID")
@@ -327,25 +331,25 @@ func AddOrder(c *gin.Context) {
 	})
 }
 
-func placeOrder(order model.Order, cart []model.CartItems, referraloffer, couponoffer float64) bool {
+func placeOrder(order model.Order, cart []model.CartItems, referraloffer, couponoffer int) bool {
 	var orderitems []model.OrderItem
 	for _, val := range cart {
 		var offer, price float64
 		database.DB.Model(&model.Product{}).Select("offer_amount").Where("id=?", val.ProductID).First(&offer)
 
 		database.DB.Model(&model.Product{}).Select("price").Where("id=?", val.ProductID).First(&price)
-		cid, cat_offer := 0, 0.0
+		cid, cat_offer := 0, 0
 		database.DB.Model(&model.Product{}).Select("category_id").Where("id=?", val.ProductID).First(&cid)
 		database.DB.Model(&model.Category{}).Select("offer_percentage").Where("id=?", cid).First(&cat_offer)
-		cat_amount := (price * cat_offer) / 100
-		ref_amount := (price * referraloffer) / 100
+		cat_amount := (price * float64(cat_offer)) / 100
+		ref_amount := (price * float64(referraloffer)) / 100
 		coupon_amount := (price * float64(couponoffer)) / 100
 		orderitem := model.OrderItem{
 			OrderID:     order.OrderID,
 			UserID:      order.UserID,
 			ProductID:   val.ProductID,
 			Quantity:    val.Quantity,
-			Amount:      (offer - cat_amount - ref_amount - coupon_amount) * float64(val.Quantity),
+			Amount:      float64(int((offer - cat_amount - ref_amount - coupon_amount) * float64(val.Quantity))),
 			OrderStatus: "PLACED",
 		}
 		fmt.Println(orderitem.ProductID, " offer amount:", offer, " category_offer:", cat_amount, "refferal_offer:", ref_amount, "order_total:", orderitem.Amount)
@@ -486,6 +490,14 @@ func CancelOrders(c *gin.Context) {
 			})
 			return
 		}
+		order.ItemCount = 0
+		order.TotalAmount = 0
+		if tx := database.DB.Model(&model.Order{}).Where("order_id = ? AND user_id = ?", order.OrderID, order.UserID).Updates(map[string]interface{}{"item_count": order.ItemCount, "total_amount": order.TotalAmount}); tx.Error != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"message": "Cancel failed!",
+			})
+			return
+		}
 		if order.PaymentStatus == "PAID" {
 			var wallet model.UserWalletHistory
 			var cBallance float64
@@ -517,8 +529,10 @@ func CancelOrders(c *gin.Context) {
 				RazorpaySignature: "",
 				PaymentGateway:    "Wallet",
 				PaymentStatus:     "REFUND",
+				Amount:            order.TotalAmount,
 			}
 			database.DB.Model(&model.Payment{}).Create(&payement)
+
 			database.DB.Model(&model.Order{}).Where("order_id=?", order.OrderID).Update("payment_status", "REFUND")
 			c.JSON(http.StatusOK, gin.H{
 				"message":        "Order Cancelled!",
@@ -526,7 +540,6 @@ func CancelOrders(c *gin.Context) {
 				"wallet balance": newWallet.CurrentBalance,
 			})
 		} else {
-
 			database.DB.Model(&model.Order{}).Where("order_id=?", order.OrderID).Update("payment_status", "CANCELED")
 			c.JSON(http.StatusOK, gin.H{
 				"message": "Order Cancelled!",
@@ -620,15 +633,27 @@ func CancelOrders(c *gin.Context) {
 			RazorpaySignature: "",
 			PaymentGateway:    "Wallet",
 			PaymentStatus:     "REFUND",
+			Amount:            oitem.Amount,
 		}
 		database.DB.Model(&model.Payment{}).Create(&payement)
-		database.DB.Model(&model.Order{}).Where("order_id=?", order.OrderID).Update("payment_status", "REFUND")
+		var orders []model.OrderItem
+		database.DB.Model(&model.OrderItem{}).Where("order_id=?", order.OrderID).Find(&orders)
+		i := 0
+		for i = 0; i < len(orders); i++ {
+			if (orders[i].OrderStatus != "CANCELED") && (orders[i].OrderStatus != "RETURNED") {
+				break
+			}
+		}
+		if i == len(orders) {
+			database.DB.Model(&model.Order{}).Where("order_id=?", order.OrderID).Update("payment_status", "REFUND")
+		}
 		c.JSON(http.StatusOK, gin.H{
 			"message":        "Order Cancelled!",
 			"Refund":         "Success",
 			"wallet balance": newWallet.CurrentBalance,
 		})
 	} else {
+
 		database.DB.Model(&model.Order{}).Where("order_id=?", order.OrderID).Update("payment_status", "CANCELED")
 		c.JSON(http.StatusOK, gin.H{
 			"message": "Order Cancelled!",
@@ -653,7 +678,8 @@ func CreateOrder(c *gin.Context) {
 
 	var order model.Order
 	database.DB.Model(&model.Order{}).Where("order_id=?", o_id).First(&order)
-	amount := order.TotalAmount * 100
+	amount := RoundDecimalValue(order.TotalAmount * 100)
+	println(amount, order.TotalAmount)
 	razorpayOrder, err := client.Order.Create(map[string]interface{}{
 		"amount":   amount,
 		"currency": "INR",
@@ -665,7 +691,6 @@ func CreateOrder(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error creating order"})
 		deleteOrder(int(o_id))
 		return
-
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"order_id": razorpayOrder["id"],
@@ -697,6 +722,8 @@ func VerifyPayment(c *gin.Context) {
 		return
 	}
 	// database.DB.AutoMigrate(&model.Payment{})
+	amount := 0.0
+	database.DB.Model(&model.Order{}).Where("order_id =?", o_id).Select("total_amount").First(&amount)
 	payement := model.Payment{
 		OrderID:           orderid,
 		WalletPaymentID:   "",
@@ -705,6 +732,7 @@ func VerifyPayment(c *gin.Context) {
 		RazorpaySignature: paymentInfo.Signature,
 		PaymentGateway:    "Razorpay",
 		PaymentStatus:     "PAID",
+		Amount:            amount,
 	}
 	fmt.Println(payement)
 	database.DB.Model(&model.Payment{}).Create(&payement)

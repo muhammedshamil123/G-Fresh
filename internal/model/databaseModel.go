@@ -115,13 +115,14 @@ type Rating struct {
 }
 
 type Payment struct {
-	OrderID           string `validate:"required" json:"order_id"`
-	WalletPaymentID   string `json:"wallet_payment_id" gorm:"column:wallet_payment_id"`
-	RazorpayOrderID   string `validate:"required" json:"razorpay_order_id" gorm:"column:razorpay_order_id"`
-	RazorpayPaymentID string `validate:"required" json:"razorpay_payment_id" gorm:"column:razorpay_payment_id"`
-	RazorpaySignature string `validate:"required" json:"razorpay_signature" gorm:"column:razorpay_signature"`
-	PaymentGateway    string `json:"payment_gateway" gorm:"payment_gateway"`
-	PaymentStatus     string `validate:"required" json:"payment_status" gorm:"column:payment_status"`
+	OrderID           string  `validate:"required" json:"order_id"`
+	WalletPaymentID   string  `json:"wallet_payment_id" gorm:"column:wallet_payment_id"`
+	RazorpayOrderID   string  `validate:"required" json:"razorpay_order_id" gorm:"column:razorpay_order_id"`
+	RazorpayPaymentID string  `validate:"required" json:"razorpay_payment_id" gorm:"column:razorpay_payment_id"`
+	RazorpaySignature string  `validate:"required" json:"razorpay_signature" gorm:"column:razorpay_signature"`
+	PaymentGateway    string  `json:"payment_gateway" gorm:"payment_gateway"`
+	PaymentStatus     string  `validate:"required" json:"payment_status" gorm:"column:payment_status"`
+	Amount            float64 `validate:"required" json:"amount" gorm:"column:amount"`
 }
 
 type WishlistItems struct {
@@ -146,6 +147,7 @@ type CouponInventory struct {
 	Percentage    uint      `validate:"required" json:"percentage"`
 	MaximumUsage  uint      `validate:"required" json:"maximum_usage"`
 	MinimumAmount float64   `validate:"required" json:"minimum_amount"`
+	MaximumAmount float64   `validate:"required" json:"maximum_amount"`
 }
 
 func (c *CouponInventory) UnmarshalJSON(data []byte) error {

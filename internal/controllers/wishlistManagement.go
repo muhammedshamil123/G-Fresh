@@ -243,21 +243,21 @@ func MoveToCart(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"message": "Added to cart succesfully!!",
 		})
-		return
-	}
-	newcart := model.CartItems{
-		ProductID: uint(prodid),
-		Quantity:  uint(qty),
-		UserID:    userId.ID,
-	}
+	} else {
+		newcart := model.CartItems{
+			ProductID: uint(prodid),
+			Quantity:  uint(qty),
+			UserID:    userId.ID,
+		}
 
-	result := database.DB.Create(&newcart)
-	if result.Error != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"message": "Error adding to cart",
-			"error":   result.Error,
-		})
-		return
+		result := database.DB.Create(&newcart)
+		if result.Error != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"message": "Error adding to cart",
+				"error":   result.Error,
+			})
+			return
+		}
 	}
 	if tx := database.DB.Where("user_id=? AND product_id=?", wishlist.UserID, wishlist.ProductID).Delete(&model.WishlistItems{}); tx.Error != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{

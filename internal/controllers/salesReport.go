@@ -17,11 +17,15 @@ import (
 func SalesReport(c *gin.Context) {
 	download := c.Query("download")
 	var input model.PlatformSalesReportInput
-	if err := c.BindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
 
+	// if err := c.BindJSON(&input); err != nil {
+	// 	c.JSON(http.StatusBadRequest, gin.H{"errors": err.Error()})
+	// 	return
+	// }
+	input.StartDate = c.Query("start_date")
+	input.EndDate = c.Query("end_date")
+	input.Limit = c.Query("limit")
+	input.PaymentStatus = c.Query("payment_status")
 	if input.StartDate == "" && input.EndDate == "" && input.Limit == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "please provide custom date(start & end date), or specify the limit (day, week, month, year)"})
 		return
@@ -75,7 +79,7 @@ func SalesReport(c *gin.Context) {
 			}
 
 			c.Writer.Header().Set("Content-type", "application/pdf")
-			c.Writer.Header().Set("Content-Disposition", "inline; filename=invoice.pdf") //https://blog.devgenius.io/tutorial-creating-an-endpoint-to-download-files-using-golang-and-gin-gonic-27abbcf75940
+			c.Writer.Header().Set("Content-Disposition", "inline; filename=salesreport.pdf")
 			c.Writer.Write(pdfBytes)
 		}
 		c.JSON(http.StatusOK, gin.H{
@@ -106,7 +110,7 @@ func SalesReport(c *gin.Context) {
 		}
 
 		c.Writer.Header().Set("Content-type", "application/pdf")
-		c.Writer.Header().Set("Content-Disposition", "inline; filename=invoice.pdf")
+		c.Writer.Header().Set("Content-Disposition", "inline; filename=salesreport.pdf")
 		c.Writer.Write(pdfBytes)
 	}
 	c.JSON(http.StatusOK, gin.H{
@@ -148,11 +152,15 @@ func totalSales(start, end, PaymentStatus string) (model.OrderCount, model.Amoun
 	}
 	var totalCount int64
 	var AccountInformation model.AmountInformation
+	var totalRefundAmount float64
+	database.DB.Model(&model.Payment{}).Where("payment_status = ?", "REFUND").Select("SUM(amount) as total_refund").Row().Scan(&totalRefundAmount)
+	fmt.Println(totalRefundAmount)
 	for _, order := range orders {
 		AccountInformation.TotalCouponDeduction += RoundDecimalValue(order.CouponDiscountAmount)
 		AccountInformation.TotalProductOfferDeduction += RoundDecimalValue(order.ProductOfferAmount)
 		AccountInformation.TotalAmountBeforeDeduction += RoundDecimalValue(order.FinalAmount)
 		AccountInformation.TotalAmountAfterDeduction += RoundDecimalValue(order.TotalAmount)
+
 		var orderItems []model.OrderItem
 		if err := database.DB.Where("order_id =?", order.OrderID).Find(&orderItems).Error; err != nil {
 			return model.OrderCount{}, model.AmountInformation{}, errors.New("error fetching order items")
@@ -165,8 +173,9 @@ func totalSales(start, end, PaymentStatus string) (model.OrderCount, model.Amoun
 			orderStatusCounts[status] += count
 			totalCount += count
 		}
-	}
 
+	}
+	AccountInformation.TotalSalesRevenue = AccountInformation.TotalAmountAfterDeduction - RoundDecimalValue(totalRefundAmount)
 	return model.OrderCount{
 		TotalOrder:          uint(totalCount),
 		TotalPLACED:         uint(orderStatusCounts["PLACED"]),

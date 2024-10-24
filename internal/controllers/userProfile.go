@@ -265,7 +265,7 @@ func ShowCart(c *gin.Context) {
 		refferaloffer = 2
 	}
 
-	var couponoffer, couponmin int
+	var couponoffer, couponmin, couponmax int
 	if coupon != "" {
 		var existCoupon model.CouponInventory
 		if tx := database.DB.Model(&model.CouponInventory{}).Where("coupon_code=?", coupon).First(&existCoupon); tx.Error != nil {
@@ -304,6 +304,7 @@ func ShowCart(c *gin.Context) {
 		}
 		couponmin = int(existCoupon.MinimumAmount)
 		couponoffer = int(existCoupon.Percentage)
+		couponmax = int(existCoupon.MaximumAmount)
 	}
 	var total, order_total int
 	for _, val := range cartItems {
@@ -326,8 +327,8 @@ func ShowCart(c *gin.Context) {
 			OfferAmount: products.OfferAmount,
 			StockLeft:   products.StockLeft,
 		}
-		ref_amount := (product.OfferAmount * float64(refferaloffer)) / 100
-		coupon_amount := (product.OfferAmount * float64(couponoffer)) / 100
+		ref_amount := (product.Price * float64(refferaloffer)) / 100
+		coupon_amount := (product.Price * float64(couponoffer)) / 100
 		if product.StockLeft < val.Quantity {
 			if product.StockLeft <= 0 {
 				c.JSON(http.StatusNotModified, gin.H{
@@ -346,9 +347,10 @@ func ShowCart(c *gin.Context) {
 				"updation": "Quantity Decreased to Availability",
 			})
 
-			order_total += int(product.OfferAmount * float64(val.Quantity))
-			offer_amount := (product.OfferAmount * float64(cat_offer)) / 100
-			total += int(product.OfferAmount-offer_amount-ref_amount-coupon_amount) * int(val.Quantity)
+			order_total += int(product.Price * float64(val.Quantity))
+			offer_amount := (product.Price * float64(cat_offer)) / 100
+			total += int(float64((product.OfferAmount - offer_amount - ref_amount - coupon_amount)) * float64(val.Quantity))
+			fmt.Println(val.ProductID, " offer amount:", product.OfferAmount, " category_offer:", offer_amount, "refferal_offer:", ref_amount, "order_total:", order_total)
 			continue
 		}
 		c.JSON(http.StatusOK, gin.H{
@@ -356,9 +358,10 @@ func ShowCart(c *gin.Context) {
 			"quantity":        val.Quantity,
 			"category_offer%": cat_offer,
 		})
-		order_total += int(product.OfferAmount * float64(val.Quantity))
-		offer_amount := (product.OfferAmount * float64(cat_offer)) / 100
-		total += int(product.OfferAmount-offer_amount-ref_amount-coupon_amount) * int(val.Quantity)
+		order_total += int(product.Price * float64(val.Quantity))
+		offer_amount := (product.Price * float64(cat_offer)) / 100
+		total += int(float64((product.OfferAmount - offer_amount - ref_amount - coupon_amount)) * float64(val.Quantity))
+		fmt.Println(val.ProductID, " offer amount:", product.OfferAmount, " category_offer:", offer_amount, "refferal_offer:", ref_amount, "order_total:", order_total)
 	}
 	if len(cartItems) == 0 {
 		c.JSON(http.StatusOK, gin.H{
@@ -375,6 +378,13 @@ func ShowCart(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"message": "Coupon code cannot use order below limit!",
 			"limit":   couponmin,
+		})
+		return
+	}
+	if order_total > couponmax && coupon != "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "Coupon code cannot use order above limit!",
+			"limit":   couponmax,
 		})
 		return
 	}

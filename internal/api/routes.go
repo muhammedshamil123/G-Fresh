@@ -52,7 +52,7 @@ func AdminRoutes(router *gin.Engine) {
 	router.PATCH("/admin/coupon/update/:code", controllers.AdminAuthorization(), controllers.EditCoupon)
 
 	//salesReport
-	router.POST("/admin/sales/:download", controllers.AdminAuthorization(), controllers.SalesReport)
+	router.GET("/admin/sales/:download", controllers.AdminAuthorization(), controllers.SalesReport)
 	// router.GET("/admin/sales/report", controllers.AdminAuthorization(), controllers.GeneratePDFReport)
 }
 

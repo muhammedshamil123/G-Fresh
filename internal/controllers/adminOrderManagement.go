@@ -129,6 +129,7 @@ func CancelOrdersAdmin(c *gin.Context) {
 				RazorpaySignature: "",
 				PaymentGateway:    "Wallet",
 				PaymentStatus:     "REFUND",
+				Amount:            order.TotalAmount,
 			}
 			database.DB.Model(&model.Payment{}).Create(&payement)
 			database.DB.Model(&model.Order{}).Where("order_id=?", order.OrderID).Update("payment_status", "REFUND")
@@ -142,6 +143,14 @@ func CancelOrdersAdmin(c *gin.Context) {
 			c.JSON(http.StatusOK, gin.H{
 				"message": "Order Cancelled!",
 			})
+		}
+		order.ItemCount = 0
+		order.TotalAmount = 0
+		if tx := database.DB.Model(&model.Order{}).Where("order_id = ? AND user_id = ?", order.OrderID, order.UserID).Updates(map[string]interface{}{"item_count": order.ItemCount, "total_amount": order.TotalAmount}); tx.Error != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"message": "Cancel failed!",
+			})
+			return
 		}
 		var oitem []model.OrderItem
 		if tx := database.DB.Model(&model.OrderItem{}).Where("order_id=? AND user_id=?", oid, order.UserID).Find(&oitem); tx.Error != nil {
@@ -175,8 +184,6 @@ func CancelOrdersAdmin(c *gin.Context) {
 		})
 		return
 	}
-	order.ItemCount--
-	order.TotalAmount -= oitem.Amount
 
 	var orderitems []model.OrderItem
 	flag := true
@@ -188,12 +195,6 @@ func CancelOrdersAdmin(c *gin.Context) {
 	}
 	if flag {
 		order.OrderStatus = "CANCELED"
-	}
-	if tx := database.DB.Model(&model.Order{}).Where("order_id = ?", oid).Updates(map[string]interface{}{"item_count": order.ItemCount, "total_amount": order.TotalAmount, "order_status": order.OrderStatus}); tx.Error != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"message": "Cancellation failed!",
-		})
-		return
 	}
 
 	var product model.Product
@@ -220,7 +221,7 @@ func CancelOrdersAdmin(c *gin.Context) {
 			WalletPaymentID: uuid.New().String(),
 			UserID:          order.UserID,
 			Type:            "Incoming",
-			Amount:          order.TotalAmount,
+			Amount:          oitem.Amount,
 			CurrentBalance:  newBalance,
 			OrderID:         strconv.Itoa(int(order.OrderID)),
 			Reason:          "Order Cancel",
@@ -236,9 +237,30 @@ func CancelOrdersAdmin(c *gin.Context) {
 			RazorpaySignature: "",
 			PaymentGateway:    "Wallet",
 			PaymentStatus:     "REFUND",
+			Amount:            oitem.Amount,
 		}
 		database.DB.Model(&model.Payment{}).Create(&payement)
-		database.DB.Model(&model.Order{}).Where("order_id=?", order.OrderID).Update("payment_status", "REFUND")
+		var orders []model.OrderItem
+		database.DB.Model(&model.OrderItem{}).Where("order_id=?", order.OrderID).Find(&orders)
+		i := 0
+		for i = 0; i < len(orders); i++ {
+			if orders[i].OrderStatus != "CANCELED" && orders[i].OrderStatus != "RETURNED" {
+				break
+			}
+		}
+		if i == len(orders) {
+			database.DB.Model(&model.Order{}).Where("order_id=?", order.OrderID).Update("payment_status", "REFUND")
+		}
+
+		order.ItemCount--
+		order.TotalAmount -= oitem.Amount
+
+		if tx := database.DB.Model(&model.Order{}).Where("order_id = ?", oid).Updates(map[string]interface{}{"item_count": order.ItemCount, "total_amount": order.TotalAmount, "order_status": order.OrderStatus}); tx.Error != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"message": "Cancellation failed!",
+			})
+			return
+		}
 		c.JSON(http.StatusOK, gin.H{
 			"message":        "Order Cancelled!",
 			"Refund":         "Success",
@@ -310,6 +332,7 @@ func ChangeStatus(c *gin.Context) {
 			RazorpaySignature: "",
 			PaymentGateway:    "COD",
 			PaymentStatus:     "PAID",
+			Amount:            order.TotalAmount,
 		}
 		database.DB.Model(&model.Payment{}).Create(&payement)
 		database.DB.Model(&model.Order{}).Where("order_id=?", order.OrderID).Update("payment_status", "PAID")
@@ -379,9 +402,20 @@ func ChangeStatus(c *gin.Context) {
 			RazorpaySignature: "",
 			PaymentGateway:    "Wallet",
 			PaymentStatus:     "REFUND",
+			Amount:            oitem.Amount,
 		}
 		database.DB.Model(&model.Payment{}).Create(&payement)
-		database.DB.Model(&model.Order{}).Where("order_id=?", order.OrderID).Update("payment_status", "REFUND")
+		var orders []model.OrderItem
+		database.DB.Model(&model.OrderItem{}).Where("order_id=?", order.OrderID).Find(&orders)
+		i := 0
+		for i = 0; i < len(orders); i++ {
+			if orders[i].OrderStatus != "CANCELED" && orders[i].OrderStatus != "RETURNED" {
+				break
+			}
+		}
+		if i == len(orders) {
+			database.DB.Model(&model.Order{}).Where("order_id=?", order.OrderID).Update("payment_status", "REFUND")
+		}
 		c.JSON(http.StatusOK, gin.H{
 			"message": "Order Returned!",
 			"Refund":  "Success",

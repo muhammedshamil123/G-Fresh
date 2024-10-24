@@ -73,8 +73,8 @@ type GoogleResponse struct {
 type OrderResponce struct {
 	OrderID              uint      `json:"order_id"`
 	ItemCount            uint      `json:"item_count"`
-	TotalAmount          float64   `json:"total_amount"`
-	FinalAmount          float64   `json:"final_amount"`
+	TotalAmount          float64   `json:"final_amount"`
+	FinalAmount          float64   `json:"total_amount"`
 	PaymentMethod        string    `json:"payment_method"`
 	PaymentStatus        string    `json:"payment_status"`
 	OrderedAt            time.Time `json:"ordered_at"`
@@ -124,4 +124,5 @@ type AmountInformation struct {
 	TotalProductOfferDeduction float64 `json:"total_product_offer_deduction"`
 	TotalAmountBeforeDeduction float64 `json:"total_amount_before_deduction"`
 	TotalAmountAfterDeduction  float64 `json:"total_amount_after_deduction"`
+	TotalSalesRevenue          float64 `json:"total_sales_revenue"`
 }
