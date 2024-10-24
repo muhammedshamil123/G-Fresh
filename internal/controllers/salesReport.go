@@ -177,6 +177,12 @@ func totalSales(start, end, PaymentStatus string) (model.OrderCount, model.Amoun
 		if err := database.DB.Where("order_id =?", order.OrderID).Find(&orderItems).Error; err != nil {
 			return model.OrderCount{}, model.AmountInformation{}, errors.New("error fetching order items")
 		}
+		for _, val := range orderItems {
+			AccountInformation.TotalProductSold += val.Quantity
+			if val.OrderStatus == "CANCELED" || val.OrderStatus == "RETURNED" {
+				AccountInformation.TotalProductReturned += val.Quantity
+			}
+		}
 		for _, status := range []string{"PLACED", "CONFIRMED", "SHIPPED", "OUT FOR DELIVERY", "DELIVERED", "CANCELED", "RETURN REQUEST", "RETURNED"} {
 			var count int64
 			if err := database.DB.Model(&model.OrderItem{}).Where("order_id =? AND order_status =?", order.OrderID, status).Count(&count).Error; err != nil {
@@ -187,6 +193,11 @@ func totalSales(start, end, PaymentStatus string) (model.OrderCount, model.Amoun
 		}
 
 	}
+	AccountInformation.AverageOrderValue = AccountInformation.TotalAmountAfterDeduction / float64(len(orders))
+	var userCount int64
+	database.DB.Model(&model.User{}).Count(&userCount)
+	AccountInformation.TotalCustomers = uint(userCount)
+
 	return model.OrderCount{
 		TotalOrder:          uint(totalCount),
 		TotalPLACED:         uint(orderStatusCounts["PLACED"]),
@@ -258,6 +269,27 @@ func GeneratePDFReport(result model.OrderCount, amount model.AmountInformation, 
 	pdf.CellFormat(60, 10, fmt.Sprintf("%v", result.TotalCANCELED), "1", 0, "C", false, 0, "")
 	pdf.CellFormat(60, 10, fmt.Sprintf("%v", result.TotalRETURNREQUEST), "1", 0, "C", false, 0, "")
 	pdf.CellFormat(70, 10, fmt.Sprintf("%v", result.TotalRETURNED), "1", 1, "C", false, 0, "")
+
+	pdf.Ln(30)
+
+	pdf.SetFont("Arial", "B", 13)
+	pdf.CellFormat(100, 10, "Average order value", "1", 0, "C", false, 0, "")
+	pdf.SetFont("Arial", "", 12)
+	pdf.CellFormat(70, 10, fmt.Sprintf("%v", amount.AverageOrderValue), "1", 1, "C", false, 0, "")
+	pdf.Ln(10)
+
+	pdf.SetFont("Arial", "B", 13)
+	pdf.CellFormat(100, 10, "Total Products Sold", "1", 0, "C", false, 0, "")
+	pdf.SetFont("Arial", "", 12)
+	pdf.CellFormat(70, 10, fmt.Sprintf("%v", amount.TotalProductSold), "1", 1, "C", false, 0, "")
+	pdf.SetFont("Arial", "B", 13)
+	pdf.CellFormat(100, 10, "Total Products Returned", "1", 0, "C", false, 0, "")
+	pdf.SetFont("Arial", "", 12)
+	pdf.CellFormat(70, 10, fmt.Sprintf("%v", amount.TotalProductReturned), "1", 1, "C", false, 0, "")
+	pdf.SetFont("Arial", "B", 13)
+	pdf.CellFormat(100, 10, "Total number of customers", "1", 0, "C", false, 0, "")
+	pdf.SetFont("Arial", "", 12)
+	pdf.CellFormat(70, 10, fmt.Sprintf("%v", amount.TotalCustomers), "1", 1, "C", false, 0, "")
 
 	pdf.Ln(30)
 

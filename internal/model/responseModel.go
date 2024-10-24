@@ -126,4 +126,8 @@ type AmountInformation struct {
 	TotalAmountAfterDeduction  float64 `json:"total_amount_after_deduction"`
 	TotalSalesRevenue          float64 `json:"total_sales_revenue"`
 	TotalRefundAmount          float64 `json:"total_refund_amount"`
+	AverageOrderValue          float64 `json:"average_order_value"`
+	TotalProductSold           uint    `json:"total_products_sold"`
+	TotalProductReturned       uint    `json:"total_products_returned"`
+	TotalCustomers             uint    `json:"total_customers"`
 }
