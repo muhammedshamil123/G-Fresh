@@ -8,6 +8,7 @@ import (
 	"g-fresh/internal/model"
 	"math"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -135,9 +136,16 @@ func totalSales(start, end, PaymentStatus string) (model.OrderCount, model.Amoun
 	fend := time.Date(parsedEnd.Year(), parsedEnd.Month(), parsedEnd.Day(), 23, 59, 59, 999999999, time.UTC)
 	startTime := fstart.Format("2006-01-02T15:04:05Z")
 	endDate := fend.Format("2006-01-02T15:04:05Z")
-	if err := database.DB.Where("ordered_at BETWEEN ? AND ? AND payment_status =?", startTime, endDate, PaymentStatus).Find(&orders).Error; err != nil {
-		fmt.Println("error parsing End time: ", err)
-		return model.OrderCount{}, model.AmountInformation{}, errors.New("error fetching orders")
+	if PaymentStatus == "" {
+		if err := database.DB.Where("ordered_at BETWEEN ? AND ? ", startTime, endDate).Find(&orders).Error; err != nil {
+			fmt.Println("error parsing End time: ", err)
+			return model.OrderCount{}, model.AmountInformation{}, errors.New("error fetching orders")
+		}
+	} else {
+		if err := database.DB.Where("ordered_at BETWEEN ? AND ? AND payment_status =?", startTime, endDate, PaymentStatus).Find(&orders).Error; err != nil {
+			fmt.Println("error parsing End time: ", err)
+			return model.OrderCount{}, model.AmountInformation{}, errors.New("error fetching orders")
+		}
 	}
 
 	var orderStatusCounts = map[string]int64{
@@ -152,14 +160,18 @@ func totalSales(start, end, PaymentStatus string) (model.OrderCount, model.Amoun
 	}
 	var totalCount int64
 	var AccountInformation model.AmountInformation
-	var totalRefundAmount float64
-	database.DB.Model(&model.Payment{}).Where("payment_status = ?", "REFUND").Select("SUM(amount) as total_refund").Row().Scan(&totalRefundAmount)
-	fmt.Println(totalRefundAmount)
+
 	for _, order := range orders {
 		AccountInformation.TotalCouponDeduction += RoundDecimalValue(order.CouponDiscountAmount)
 		AccountInformation.TotalProductOfferDeduction += RoundDecimalValue(order.ProductOfferAmount)
 		AccountInformation.TotalAmountBeforeDeduction += RoundDecimalValue(order.FinalAmount)
-		AccountInformation.TotalAmountAfterDeduction += RoundDecimalValue(order.TotalAmount)
+		var totalRefundAmount float64
+		id := strconv.Itoa(int(order.OrderID))
+		database.DB.Model(&model.Payment{}).Where("payment_status = ? AND order_id=?", "REFUND", id).Select("SUM(amount) as total_refund").Row().Scan(&totalRefundAmount)
+		fmt.Println(totalRefundAmount)
+		AccountInformation.TotalSalesRevenue += RoundDecimalValue(order.TotalAmount)
+		AccountInformation.TotalAmountAfterDeduction += RoundDecimalValue(order.TotalAmount) + RoundDecimalValue(totalRefundAmount)
+		AccountInformation.TotalRefundAmount += RoundDecimalValue(totalRefundAmount)
 
 		var orderItems []model.OrderItem
 		if err := database.DB.Where("order_id =?", order.OrderID).Find(&orderItems).Error; err != nil {
@@ -175,7 +187,6 @@ func totalSales(start, end, PaymentStatus string) (model.OrderCount, model.Amoun
 		}
 
 	}
-	AccountInformation.TotalSalesRevenue = AccountInformation.TotalAmountAfterDeduction - RoundDecimalValue(totalRefundAmount)
 	return model.OrderCount{
 		TotalOrder:          uint(totalCount),
 		TotalPLACED:         uint(orderStatusCounts["PLACED"]),
@@ -208,8 +219,10 @@ func GeneratePDFReport(result model.OrderCount, amount model.AmountInformation, 
 
 	pdf.SetTextColor(0, 0, 0)
 	pdf.SetFont("Arial", "B", 12)
-	pdf.Cell(40, 10, fmt.Sprintf("Payment status: %v", PaymentStatus))
-	pdf.Ln(20)
+	if PaymentStatus != "" {
+		pdf.Cell(40, 10, fmt.Sprintf("Payment status: %v", PaymentStatus))
+		pdf.Ln(20)
+	}
 
 	pdf.Cell(50, 10, fmt.Sprintf("Start Date: %v", start))
 	pdf.Cell(50, 10, fmt.Sprintf("End Date: %v", end))
@@ -263,6 +276,13 @@ func GeneratePDFReport(result model.OrderCount, amount model.AmountInformation, 
 
 	pdf.SetFont("Arial", "B", 12)
 	pdf.Cell(40, 10, fmt.Sprintf("Total Amount After Deduction:     %.2f", amount.TotalAmountAfterDeduction))
+	pdf.Ln(20)
+
+	pdf.Cell(40, 10, fmt.Sprintf("Total Refund Amount:     			%.2f", amount.TotalRefundAmount))
+	pdf.Ln(20)
+
+	pdf.SetTextColor(0, 255, 0)
+	pdf.Cell(40, 10, fmt.Sprintf("Total Sales Revenue:    			%.2f", amount.TotalSalesRevenue))
 	pdf.Ln(20)
 
 	pdf.SetFont("Arial", "", 12)
