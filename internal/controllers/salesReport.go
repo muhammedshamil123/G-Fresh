@@ -168,7 +168,6 @@ func totalSales(start, end, PaymentStatus string) (model.OrderCount, model.Amoun
 		var totalRefundAmount float64
 		id := strconv.Itoa(int(order.OrderID))
 		database.DB.Model(&model.Payment{}).Where("payment_status = ? AND order_id=?", "REFUND", id).Select("SUM(amount) as total_refund").Row().Scan(&totalRefundAmount)
-		fmt.Println(totalRefundAmount)
 		AccountInformation.TotalSalesRevenue += RoundDecimalValue(order.TotalAmount)
 		AccountInformation.TotalAmountAfterDeduction += RoundDecimalValue(order.TotalAmount) + RoundDecimalValue(totalRefundAmount)
 		AccountInformation.TotalRefundAmount += RoundDecimalValue(totalRefundAmount)

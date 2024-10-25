@@ -223,6 +223,8 @@ func AddOrder(c *gin.Context) {
 		})
 		return
 	}
+	var orders model.OrderResponce
+	database.DB.Model(&model.Order{}).Where("order_id=?", order.OrderID).First(&orders)
 	if placeOrder(order, carts, refferaloffer, couponoffer) {
 		if referral != "" {
 			database.DB.Model(&model.UserReferralHistory{}).Where("user_id=?", order.UserID).Update("refer_claimed", true)
@@ -249,7 +251,7 @@ func AddOrder(c *gin.Context) {
 
 			c.JSON(http.StatusOK, gin.H{
 				"message": "Payement pending!",
-				"order":   order,
+				"order":   orders,
 			})
 			database.DB.Model(&model.CartItems{}).Where("user_id=?", order.UserID).Delete(&model.CartItems{})
 			return
@@ -304,7 +306,7 @@ func AddOrder(c *gin.Context) {
 
 			c.JSON(http.StatusOK, gin.H{
 				"message":        "Order Created!",
-				"order":          order,
+				"order":          orders,
 				"wallet balance": newWallet.CurrentBalance,
 			})
 			database.DB.Model(&model.CartItems{}).Where("user_id=?", order.UserID).Delete(&model.CartItems{})
@@ -313,7 +315,7 @@ func AddOrder(c *gin.Context) {
 			o_id = 0
 			c.JSON(http.StatusOK, gin.H{
 				"message": "Order Created!",
-				"order":   order,
+				"order":   orders,
 			})
 			database.DB.Model(&model.CartItems{}).Where("user_id=?", order.UserID).Delete(&model.CartItems{})
 			return
