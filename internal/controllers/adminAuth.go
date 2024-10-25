@@ -2,7 +2,6 @@ package controllers
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 	"os"
 
@@ -20,9 +19,8 @@ var jwtSecret = []byte(os.Getenv("JWTSECRET"))
 var ADMINTOKEN string
 
 func AdminLogin(c *gin.Context) {
-	// Get the email from the JSON request
+
 	var form struct{ model.AdminLoginRequest }
-	fmt.Println(jwtSecret)
 	if err := c.BindJSON(&form); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"message": "Failed to process the incoming request",
