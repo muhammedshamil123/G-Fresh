@@ -136,6 +136,10 @@ func totalSales(start, end, PaymentStatus string) (model.OrderCount, model.Amoun
 	fend := time.Date(parsedEnd.Year(), parsedEnd.Month(), parsedEnd.Day(), 23, 59, 59, 999999999, time.UTC)
 	startTime := fstart.Format("2006-01-02T15:04:05Z")
 	endDate := fend.Format("2006-01-02T15:04:05Z")
+	if startTime > endDate {
+		fmt.Println("error parsing End time: ", err)
+		return model.OrderCount{}, model.AmountInformation{}, errors.New("start date must be before end date")
+	}
 	if PaymentStatus == "" {
 		if err := database.DB.Where("ordered_at BETWEEN ? AND ? ", startTime, endDate).Find(&orders).Error; err != nil {
 			fmt.Println("error parsing End time: ", err)

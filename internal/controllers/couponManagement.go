@@ -57,6 +57,30 @@ func AddCoupon(c *gin.Context) {
 		})
 		return
 	}
+	if coupon.Percentage <= 1 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "percentage should be greater than 1!!",
+		})
+		return
+	}
+	if coupon.MaximumUsage < 1 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "max usage must be greater than 1!!",
+		})
+		return
+	}
+	if coupon.MinimumAmount <= 1 || coupon.MinimumAmount > coupon.MaximumAmount {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "min amount must be between 1 and maximum amount!!",
+		})
+		return
+	}
+	if coupon.MaximumAmount <= 1 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "max amount must be greater than 1!!",
+		})
+		return
+	}
 	if tx := database.DB.Model(&model.CouponInventory{}).Where("coupon_code=?", coupon.CouponCode).First(&exist); tx.Error == nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"Coupon code": "same coupon code exist!!",
@@ -131,6 +155,31 @@ func EditCoupon(c *gin.Context) {
 		})
 		return
 	}
+
+	if coupon.Percentage <= 1 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "percentage should be greater than 1!!",
+		})
+		return
+	}
+	if coupon.MaximumUsage < 1 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "max usage must be greater than 1!!",
+		})
+		return
+	}
+	if coupon.MinimumAmount <= 1 || coupon.MinimumAmount > coupon.MaximumAmount {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "min amount must be between 1 and maximum amount!!",
+		})
+		return
+	}
+	if coupon.MaximumAmount <= 1 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "max amount must be greater than 1!!",
+		})
+		return
+	}
 	if coupon.Expiry != exist.Expiry {
 		database.DB.Model(&model.CouponInventory{}).Where("coupon_code=?", code).Update("expiry", coupon.Expiry)
 	}
@@ -145,6 +194,9 @@ func EditCoupon(c *gin.Context) {
 	}
 	if coupon.CouponCode != exist.CouponCode {
 		database.DB.Model(&model.CouponInventory{}).Where("coupon_code=?", code).Update("coupon_code", coupon.CouponCode)
+	}
+	if coupon.MaximumAmount != exist.MaximumAmount {
+		database.DB.Model(&model.CouponInventory{}).Where("coupon_code=?", code).Update("maximum_amount", coupon.MaximumAmount)
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"message": "updated!!",
