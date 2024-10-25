@@ -4,6 +4,7 @@ import (
 	"g-fresh/internal/database"
 	"g-fresh/internal/model"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
@@ -63,7 +64,13 @@ func AddAddress(c *gin.Context) {
 		})
 		return
 	}
-
+	a, _ := strconv.Atoi(newadd.PostalCode)
+	if a < 100000 || a > 999999 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "postal code invalid",
+		})
+		return
+	}
 	add := model.Address{
 		UserID:       userId.ID,
 		PhoneNumber:  newadd.PhoneNumber,
@@ -145,6 +152,14 @@ func EditAddress(c *gin.Context) {
 		}
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": errs,
+		})
+		return
+	}
+
+	a, _ := strconv.Atoi(form.PostalCode)
+	if a < 100000 || a > 999999 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "postal code invalid",
 		})
 		return
 	}
