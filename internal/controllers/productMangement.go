@@ -70,8 +70,26 @@ func AddProducts(c *gin.Context) {
 	}
 	var cat model.Category
 	if tx := database.DB.Model(&model.Category{}).Where("id", product.CategoryID).First(&cat); tx.Error != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{
+		c.JSON(http.StatusBadRequest, gin.H{
 			"message": "Category does not exist!",
+		})
+		return
+	}
+	if product.Price <= 1 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "price must be greater than 1!",
+		})
+		return
+	}
+	if product.OfferAmount <= 1 || product.OfferAmount > product.Price {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "offer price must be between 1 and price amount!",
+		})
+		return
+	}
+	if product.StockLeft <= 1 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "stock must be greater than 1!",
 		})
 		return
 	}
@@ -170,6 +188,32 @@ func EditProduct(c *gin.Context) {
 			})
 			return
 		}
+	}
+
+	var cat model.Category
+	if tx := database.DB.Model(&model.Category{}).Where("id", form.CategoryID).First(&cat); tx.Error != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "Category does not exist!",
+		})
+		return
+	}
+	if form.Price <= 1 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "price must be greater than 1!",
+		})
+		return
+	}
+	if form.OfferAmount <= 1 || form.OfferAmount > form.Price {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "offer price must be between 1 and price amount!",
+		})
+		return
+	}
+	if form.StockLeft <= 1 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "stock must be greater than 1!",
+		})
+		return
 	}
 	product.CategoryID = form.CategoryID
 	product.Name = form.Name
