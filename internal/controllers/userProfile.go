@@ -6,6 +6,7 @@ import (
 	"g-fresh/internal/model"
 	"g-fresh/internal/utils"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -117,6 +118,13 @@ func EditProfile(c *gin.Context) {
 
 	user.Name = userDetails.Name
 	if user.Email != userDetails.Email {
+		var existingUser model.User
+		if tx := database.DB.Where("email = ?", userDetails.Email).First(&existingUser); tx.Error == nil {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"message": "Account With this email already exist",
+			})
+			return
+		}
 		user.Email = userDetails.Email
 		token, err := utils.GenerateToken(user.Email)
 		if err != nil {
@@ -124,6 +132,23 @@ func EditProfile(c *gin.Context) {
 			return
 		}
 		USERTOKEN = token
+	}
+	if user.PhoneNumber != userDetails.PhoneNumber {
+		var existingUser model.User
+		if tx := database.DB.Where("phone_number = ?", userDetails.PhoneNumber).First(&existingUser); tx.Error == nil {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"message": "Account With this phone number already exist",
+			})
+			return
+		}
+	}
+
+	p, _ := strconv.Atoi(userDetails.PhoneNumber)
+	if p < 1000000000 || p > 9999999999 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "phone number not valid",
+		})
+		return
 	}
 	user.PhoneNumber = userDetails.PhoneNumber
 	user.Picture = userDetails.Picture
@@ -188,6 +213,13 @@ func ChangePassword(c *gin.Context) {
 	if err := utils.CheckPassword(user.HashedPassword, form.OldPassword); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"message": "Password Incorrect",
+		})
+		return
+	}
+
+	if len(form.Password) < 8 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "password min length is 8",
 		})
 		return
 	}

@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -141,6 +142,12 @@ func UserSignupEmail(c *gin.Context) {
 		})
 		return
 	}
+	if len(form.Password) < 8 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "password min length is 8",
+		})
+		return
+	}
 	if form.Password != form.ConfirmPassword {
 		c.JSON(http.StatusUnauthorized, gin.H{
 			"message": "Password Does not match!!",
@@ -151,6 +158,14 @@ func UserSignupEmail(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{
 			"message": err,
+		})
+		return
+	}
+	p, _ := strconv.Atoi(form.PhoneNumber)
+	fmt.Println(p)
+	if p < 1000000000 || p > 9999999999 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "phone number not valid",
 		})
 		return
 	}
