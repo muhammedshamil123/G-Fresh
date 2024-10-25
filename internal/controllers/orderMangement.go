@@ -492,14 +492,6 @@ func CancelOrders(c *gin.Context) {
 			})
 			return
 		}
-		order.ItemCount = 0
-		order.TotalAmount = 0
-		if tx := database.DB.Model(&model.Order{}).Where("order_id = ? AND user_id = ?", order.OrderID, order.UserID).Updates(map[string]interface{}{"item_count": order.ItemCount, "total_amount": order.TotalAmount}); tx.Error != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"message": "Cancel failed!",
-			})
-			return
-		}
 		if order.PaymentStatus == "PAID" {
 			var wallet model.UserWalletHistory
 			var cBallance float64
@@ -534,6 +526,14 @@ func CancelOrders(c *gin.Context) {
 				Amount:            order.TotalAmount,
 			}
 			database.DB.Model(&model.Payment{}).Create(&payement)
+			order.ItemCount = 0
+			order.TotalAmount = 0
+			if tx := database.DB.Model(&model.Order{}).Where("order_id = ? AND user_id = ?", order.OrderID, order.UserID).Updates(map[string]interface{}{"item_count": order.ItemCount, "total_amount": order.TotalAmount}); tx.Error != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{
+					"message": "Cancel failed!",
+				})
+				return
+			}
 
 			database.DB.Model(&model.Order{}).Where("order_id=?", order.OrderID).Update("payment_status", "REFUND")
 			c.JSON(http.StatusOK, gin.H{
@@ -542,6 +542,14 @@ func CancelOrders(c *gin.Context) {
 				"wallet balance": newWallet.CurrentBalance,
 			})
 		} else {
+			order.ItemCount = 0
+			order.TotalAmount = 0
+			if tx := database.DB.Model(&model.Order{}).Where("order_id = ? AND user_id = ?", order.OrderID, order.UserID).Updates(map[string]interface{}{"item_count": order.ItemCount, "total_amount": order.TotalAmount}); tx.Error != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{
+					"message": "Cancel failed!",
+				})
+				return
+			}
 			database.DB.Model(&model.Order{}).Where("order_id=?", order.OrderID).Update("payment_status", "CANCELED")
 			c.JSON(http.StatusOK, gin.H{
 				"message": "Order Cancelled!",
@@ -564,6 +572,7 @@ func CancelOrders(c *gin.Context) {
 				fmt.Println("stock incerment failed")
 			}
 		}
+
 		return
 	}
 	var oitem model.OrderItem
