@@ -58,10 +58,16 @@ func AddCategory(c *gin.Context) {
 		})
 		return
 	}
+	if category.OfferPercentage <= 1 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "offer percentage must be greater than 1!",
+		})
+		return
+	}
 
 	var existingCat model.Category
 	if tx := database.DB.Where("name = ?", category.Name).First(&existingCat); tx.Error == nil {
-		c.JSON(http.StatusUnauthorized, gin.H{
+		c.JSON(http.StatusBadRequest, gin.H{
 			"message": "Category with same name exists!",
 		})
 		return
@@ -153,6 +159,12 @@ func EditCategory(c *gin.Context) {
 		}
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": errs,
+		})
+		return
+	}
+	if form.OfferPercentage <= 1 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": "offer percentage must be greater than 1!",
 		})
 		return
 	}
