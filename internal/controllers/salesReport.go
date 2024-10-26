@@ -235,38 +235,50 @@ func GeneratePDFReport(result model.OrderCount, amount model.AmountInformation, 
 
 	pdf.SetTextColor(0, 0, 0)
 	pdf.SetFont("Arial", "B", 12)
-	if PaymentStatus != "" {
-		pdf.Cell(40, 10, fmt.Sprintf("Payment status: %v", PaymentStatus))
-		pdf.Ln(20)
-	}
 
 	pdf.Cell(50, 10, fmt.Sprintf("Start Date: %v", start))
 	pdf.Cell(50, 10, fmt.Sprintf("End Date: %v", end))
 	pdf.Ln(20)
+
+	if PaymentStatus != "" {
+		pdf.Cell(40, 10, fmt.Sprintf("Payment status: %v", PaymentStatus))
+		pdf.Ln(20)
+	} else {
+		pdf.Cell(40, 10, "")
+		pdf.Ln(20)
+	}
 
 	chartPath, chartPath2, errs := GenerateChart(result)
 	if errs != nil {
 		return nil, errs
 	}
 	if chartPath != "" {
-		pdf.Image(chartPath, 140, 80, 100, 0, false, "", 0, "")
+		pdf.Image(chartPath, 155, 70, 100, 0, false, "", 0, "")
 	}
 	if chartPath2 != "" {
 		pdf.Image(chartPath2, 30, 80, 100, 0, false, "", 0, "")
 	}
 	if chartPath != "" || chartPath2 != "" {
-		pdf.Ln(100)
+		pdf.Ln(70)
 	}
-
+	pdf.SetFont("Arial", "", 11)
+	if chartPath != "" {
+		pdf.Cell(60, 10, "")
+		pdf.Cell(123, 10, "Orders")
+	}
+	if chartPath2 != "" {
+		pdf.Cell(110, 10, "Orders status")
+	}
+	pdf.Ln(20)
 	pdf.SetFont("Arial", "B", 13)
-	pdf.CellFormat(50, 10, "Total Order", "1", 0, "C", false, 0, "")
+	pdf.CellFormat(50, 10, "Delivered", "1", 0, "C", false, 0, "")
 	pdf.CellFormat(50, 10, "Placed", "1", 0, "C", false, 0, "")
 	pdf.CellFormat(50, 10, "Confirmed", "1", 0, "C", false, 0, "")
 	pdf.CellFormat(50, 10, "Shipped", "1", 0, "C", false, 0, "")
 	pdf.CellFormat(60, 10, "Out For Delivery", "1", 1, "C", false, 0, "")
 
 	pdf.SetFont("Arial", "", 12)
-	pdf.CellFormat(50, 10, fmt.Sprintf("%v", result.TotalOrder), "1", 0, "C", false, 0, "")
+	pdf.CellFormat(50, 10, fmt.Sprintf("%v", result.TotalDELIVERED), "1", 0, "C", false, 0, "")
 	pdf.CellFormat(50, 10, fmt.Sprintf("%v", result.TotalPLACED), "1", 0, "C", false, 0, "")
 	pdf.CellFormat(50, 10, fmt.Sprintf("%v", result.TotalCONFIRMED), "1", 0, "C", false, 0, "")
 	pdf.CellFormat(50, 10, fmt.Sprintf("%v", result.TotalSHIPPED), "1", 0, "C", false, 0, "")
@@ -274,13 +286,13 @@ func GeneratePDFReport(result model.OrderCount, amount model.AmountInformation, 
 
 	pdf.Ln(20)
 	pdf.SetFont("Arial", "B", 13)
-	pdf.CellFormat(70, 10, "Delivered", "1", 0, "C", false, 0, "")
+	pdf.CellFormat(70, 10, "Total Order", "1", 0, "C", false, 0, "")
 	pdf.CellFormat(60, 10, "Cancelled", "1", 0, "C", false, 0, "")
 	pdf.CellFormat(60, 10, "Return Request", "1", 0, "C", false, 0, "")
 	pdf.CellFormat(70, 10, "Returned", "1", 1, "C", false, 0, "")
 
 	pdf.SetFont("Arial", "", 12)
-	pdf.CellFormat(70, 10, fmt.Sprintf("%v", result.TotalDELIVERED), "1", 0, "C", false, 0, "")
+	pdf.CellFormat(70, 10, fmt.Sprintf("%v", result.TotalOrder), "1", 0, "C", false, 0, "")
 	pdf.CellFormat(60, 10, fmt.Sprintf("%v", result.TotalCANCELED), "1", 0, "C", false, 0, "")
 	pdf.CellFormat(60, 10, fmt.Sprintf("%v", result.TotalRETURNREQUEST), "1", 0, "C", false, 0, "")
 	pdf.CellFormat(70, 10, fmt.Sprintf("%v", result.TotalRETURNED), "1", 1, "C", false, 0, "")
@@ -306,34 +318,31 @@ func GeneratePDFReport(result model.OrderCount, amount model.AmountInformation, 
 	pdf.SetFont("Arial", "", 12)
 	pdf.CellFormat(70, 10, fmt.Sprintf("%v", amount.TotalCustomers), "1", 1, "C", false, 0, "")
 
-	pdf.Ln(30)
+	pdf.Ln(40)
 
-	pdf.Ln(10)
 	pdf.SetFont("Arial", "B", 12)
 	pdf.Cell(40, 10, fmt.Sprintf("Total Amount Before Deduction:    %.2f", amount.TotalAmountBeforeDeduction))
-	pdf.Ln(20)
+	pdf.Ln(15)
 
 	pdf.SetTextColor(255, 0, 0)
 	pdf.Cell(40, 10, fmt.Sprintf("Total Coupon Discount Amount:     %.2f", amount.TotalCouponDeduction))
-	pdf.Ln(20)
+	pdf.Ln(15)
 
 	pdf.Cell(40, 10, fmt.Sprintf("Total Product Discount Amount:    %.2f", amount.TotalProductOfferDeduction))
-	pdf.Ln(20)
+	pdf.Ln(15)
 	pdf.SetTextColor(0, 0, 0)
 
 	pdf.SetFont("Arial", "B", 12)
 	pdf.Cell(40, 10, fmt.Sprintf("Total Amount After Deduction:     %.2f", amount.TotalAmountAfterDeduction))
-	pdf.Ln(20)
+	pdf.Ln(15)
 
 	pdf.Cell(40, 10, fmt.Sprintf("Total Refund Amount:     			%.2f", amount.TotalRefundAmount))
-	pdf.Ln(20)
-
-	pdf.SetTextColor(0, 255, 0)
+	pdf.Ln(15)
+	pdf.SetFont("Arial", "B", 13)
+	pdf.SetTextColor(0, 0, 255)
 	pdf.Cell(40, 10, fmt.Sprintf("Total Sales Revenue:    			%.2f", amount.TotalSalesRevenue))
-	pdf.Ln(20)
-
-	pdf.SetFont("Arial", "", 12)
-
+	pdf.Ln(15)
+	pdf.Cell(40, 10, "")
 	var pdfBytes bytes.Buffer
 	err := pdf.Output(&pdfBytes)
 	if err != nil {
