@@ -8,11 +8,13 @@ import (
 	"g-fresh/internal/model"
 	"math"
 	"net/http"
+	"os"
 	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jung-kurt/gofpdf/v2"
+	"github.com/wcharczuk/go-chart"
 )
 
 func SalesReport(c *gin.Context) {
@@ -196,7 +198,7 @@ func totalSales(start, end, PaymentStatus string) (model.OrderCount, model.Amoun
 		}
 
 	}
-	AccountInformation.AverageOrderValue = AccountInformation.TotalAmountAfterDeduction / float64(len(orders))
+	AccountInformation.AverageOrderValue = RoundDecimalValue(AccountInformation.TotalAmountAfterDeduction / float64(len(orders)))
 	var userCount int64
 	database.DB.Model(&model.User{}).Count(&userCount)
 	AccountInformation.TotalCustomers = uint(userCount)
@@ -242,15 +244,27 @@ func GeneratePDFReport(result model.OrderCount, amount model.AmountInformation, 
 	pdf.Cell(50, 10, fmt.Sprintf("End Date: %v", end))
 	pdf.Ln(20)
 
-	// Table header with borders
+	chartPath, chartPath2, errs := GenerateChart(result)
+	if errs != nil {
+		return nil, errs
+	}
+	if chartPath != "" {
+		pdf.Image(chartPath, 140, 80, 100, 0, false, "", 0, "")
+	}
+	if chartPath2 != "" {
+		pdf.Image(chartPath2, 30, 80, 100, 0, false, "", 0, "")
+	}
+	if chartPath != "" || chartPath2 != "" {
+		pdf.Ln(100)
+	}
+
 	pdf.SetFont("Arial", "B", 13)
 	pdf.CellFormat(50, 10, "Total Order", "1", 0, "C", false, 0, "")
 	pdf.CellFormat(50, 10, "Placed", "1", 0, "C", false, 0, "")
 	pdf.CellFormat(50, 10, "Confirmed", "1", 0, "C", false, 0, "")
 	pdf.CellFormat(50, 10, "Shipped", "1", 0, "C", false, 0, "")
-	pdf.CellFormat(60, 10, "Out For Delivery", "1", 1, "C", false, 0, "") // '1' at the end moves to a new line
+	pdf.CellFormat(60, 10, "Out For Delivery", "1", 1, "C", false, 0, "")
 
-	// Table body with borders
 	pdf.SetFont("Arial", "", 12)
 	pdf.CellFormat(50, 10, fmt.Sprintf("%v", result.TotalOrder), "1", 0, "C", false, 0, "")
 	pdf.CellFormat(50, 10, fmt.Sprintf("%v", result.TotalPLACED), "1", 0, "C", false, 0, "")
@@ -258,7 +272,6 @@ func GeneratePDFReport(result model.OrderCount, amount model.AmountInformation, 
 	pdf.CellFormat(50, 10, fmt.Sprintf("%v", result.TotalSHIPPED), "1", 0, "C", false, 0, "")
 	pdf.CellFormat(60, 10, fmt.Sprintf("%v", result.TotalOUTFORDELIVERY), "1", 1, "C", false, 0, "")
 
-	// Next row of the table
 	pdf.Ln(20)
 	pdf.SetFont("Arial", "B", 13)
 	pdf.CellFormat(70, 10, "Delivered", "1", 0, "C", false, 0, "")
@@ -266,7 +279,6 @@ func GeneratePDFReport(result model.OrderCount, amount model.AmountInformation, 
 	pdf.CellFormat(60, 10, "Return Request", "1", 0, "C", false, 0, "")
 	pdf.CellFormat(70, 10, "Returned", "1", 1, "C", false, 0, "")
 
-	// Table body for the second row
 	pdf.SetFont("Arial", "", 12)
 	pdf.CellFormat(70, 10, fmt.Sprintf("%v", result.TotalDELIVERED), "1", 0, "C", false, 0, "")
 	pdf.CellFormat(60, 10, fmt.Sprintf("%v", result.TotalCANCELED), "1", 0, "C", false, 0, "")
@@ -329,6 +341,85 @@ func GeneratePDFReport(result model.OrderCount, amount model.AmountInformation, 
 	}
 
 	return pdfBytes.Bytes(), nil
+}
+func GenerateChart(result model.OrderCount) (string, string, error) {
+	filePath2 := ""
+	if result.TotalOrder > 0 || result.TotalCANCELED > 0 || result.TotalRETURNREQUEST > 0 || result.TotalRETURNED > 0 {
+		graph2 := chart.BarChart{
+			Title:    "Sales Distribution",
+			Width:    600,
+			Height:   400,
+			BarWidth: 60,
+			XAxis: chart.Style{
+				Show: true,
+			},
+			YAxis: chart.YAxis{
+				Style: chart.Style{
+					Show: true,
+				},
+			},
+			Bars: []chart.Value{
+				{Value: float64(result.TotalOrder), Label: "Ordered"},
+				{Value: float64(result.TotalCANCELED), Label: "Cancelled"},
+				{Value: float64(result.TotalRETURNREQUEST), Label: "Requested"},
+				{Value: float64(result.TotalRETURNED), Label: "Returned"},
+			},
+		}
+
+		// Ensure the labels are displayed correctly
+		for i := range graph2.Bars {
+			graph2.Bars[i].Style = chart.Style{
+				Show:                true,
+				FontSize:            14,               // Adjusted font size
+				FontColor:           chart.ColorBlack, // Black text for better contrast
+				TextHorizontalAlign: chart.TextHorizontalAlignCenter,
+			}
+		}
+
+		// Save the chart as a PNG file
+		filePath2 = "sales_chart.png"
+		f2, err2 := os.Create(filePath2)
+		if err2 != nil {
+			return "", "", err2
+		}
+		defer f2.Close()
+
+		err2 = graph2.Render(chart.PNG, f2)
+		if err2 != nil {
+			return "", "", err2
+		}
+	}
+	if result.TotalPLACED == 0 && result.TotalCONFIRMED == 0 && result.TotalSHIPPED == 0 && result.TotalOUTFORDELIVERY == 0 && result.TotalDELIVERED == 0 {
+		return "", filePath2, nil
+	}
+	graph := chart.PieChart{
+		Title:  "Sales Distribution",
+		Width:  600,
+		Height: 400,
+		Values: []chart.Value{
+			{Value: float64(result.TotalPLACED), Label: "Placed"},
+			{Value: float64(result.TotalCONFIRMED), Label: "Confirmed"},
+			{Value: float64(result.TotalSHIPPED), Label: "Shipped"},
+			{Value: float64(result.TotalOUTFORDELIVERY), Label: "Out for delivery"},
+			{Value: float64(result.TotalDELIVERED), Label: "Delivered"},
+		},
+	}
+
+	// Save the chart as a PNG file
+	filePath := "sales_pie_chart.png"
+	f, err := os.Create(filePath)
+	if err != nil {
+		return "", "", err
+	}
+	defer f.Close()
+
+	err = graph.Render(chart.PNG, f)
+	if err != nil {
+		return "", "", err
+	}
+
+	return filePath, filePath2, nil
+
 }
 
 //https://blog.devgenius.io/tutorial-creating-an-endpoint-to-download-files-using-golang-and-gin-gonic-27abbcf75940
