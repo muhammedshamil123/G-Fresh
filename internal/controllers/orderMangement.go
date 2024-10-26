@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"g-fresh/internal/database"
 	"g-fresh/internal/model"
+	"g-fresh/internal/utils"
 	"net/http"
 	"strconv"
 	"time"
@@ -69,7 +70,8 @@ func AddOrder(c *gin.Context) {
 		})
 		return
 	}
-
+	delivery_charge := utils.CalculateDistance(address.PostalCode)
+	fmt.Println(delivery_charge)
 	order.UserID = userId
 	order.ShippingAddress = model.ShippingAddress{
 		PhoneNumber:  address.PhoneNumber,
@@ -213,6 +215,7 @@ func AddOrder(c *gin.Context) {
 		})
 		return
 	}
+	order.DeliveryCharge = uint(RoundDecimalValue(float64(delivery_charge)))
 	order.CouponDiscountAmount = RoundDecimalValue(order.CouponDiscountAmount)
 	order.FinalAmount = RoundDecimalValue(order.FinalAmount)
 	order.TotalAmount = RoundDecimalValue(order.TotalAmount)
@@ -225,6 +228,8 @@ func AddOrder(c *gin.Context) {
 	}
 	var orders model.OrderResponce
 	database.DB.Model(&model.Order{}).Where("order_id=?", order.OrderID).First(&orders)
+	order.TotalAmount = order.TotalAmount + float64(order.DeliveryCharge)
+	orders.TotalAmount = orders.TotalAmount + float64(orders.DeliveryCharge)
 	if placeOrder(order, carts, refferaloffer, couponoffer) {
 		if referral != "" {
 			database.DB.Model(&model.UserReferralHistory{}).Where("user_id=?", order.UserID).Update("refer_claimed", true)
@@ -298,10 +303,6 @@ func AddOrder(c *gin.Context) {
 			}
 			database.DB.Model(&model.Payment{}).Create(&payement)
 			database.DB.Model(&model.Order{}).Where("order_id=?", order.OrderID).Update("payment_status", "PAID")
-			order.CouponDiscountAmount = RoundDecimalValue(order.CouponDiscountAmount)
-			order.FinalAmount = RoundDecimalValue(order.FinalAmount)
-			order.TotalAmount = RoundDecimalValue(order.TotalAmount)
-			order.ProductOfferAmount = RoundDecimalValue(order.ProductOfferAmount)
 			database.DB.Model(&model.Order{}).Where("order_id=?", order.OrderID).First(&order)
 
 			c.JSON(http.StatusOK, gin.H{
@@ -365,7 +366,6 @@ func placeOrder(order model.Order, cart []model.CartItems, referraloffer, coupon
 		database.DB.Model(&model.OrderItem{}).Where("order_id=?", order.OrderID).Delete(&model.OrderItem{})
 		return false
 	}
-	fmt.Println(orderitems)
 	for _, val := range orderitems {
 		var stock model.Product
 		if tx := database.DB.Model(&model.Product{}).Where("id=?", val.ProductID).First(&stock); tx.Error != nil {
@@ -402,7 +402,7 @@ func ShowOrders(c *gin.Context) {
 		return
 	}
 	var orders []model.OrderResponce
-	if tx := database.DB.Model(&model.Order{}).Select("order_id,item_count,total_amount,final_amount,payment_method,payment_status,ordered_at,order_status,coupon_discount_amount,product_offer_amount").Where("user_id=?", userId).Order("ordered_at DESC").Find(&orders); tx.Error != nil {
+	if tx := database.DB.Model(&model.Order{}).Select("order_id,item_count,total_amount,final_amount,payment_method,payment_status,ordered_at,order_status,coupon_discount_amount,product_offer_amount,delivery_charge").Where("user_id=?", userId).Order("ordered_at DESC").Find(&orders); tx.Error != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"message": "Orders Empty!",
 		})
@@ -422,8 +422,8 @@ func ShowOrders(c *gin.Context) {
 		})
 		return
 	}
-
 	for i, val := range orders {
+		val.TotalAmount += float64(val.DeliveryCharge)
 		var items []model.OrderItemResponse
 		if tx := database.DB.Model(&model.OrderItem{}).Select("product_id,quantity,amount,order_status").Where("order_id=?", val.OrderID).Find(&items); tx.Error != nil {
 			c.JSON(http.StatusNotFound, gin.H{

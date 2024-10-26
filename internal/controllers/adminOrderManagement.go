@@ -15,7 +15,7 @@ import (
 func ShowOrdersAdmin(c *gin.Context) {
 
 	var orders []model.OrderResponce
-	if tx := database.DB.Model(&model.Order{}).Select("order_id,item_count,total_amount,final_amount,payment_method,payment_status,ordered_at,order_status,coupon_discount_amount,product_offer_amount").Order("ordered_at DESC").Find(&orders); tx.Error != nil {
+	if tx := database.DB.Model(&model.Order{}).Select("order_id,item_count,total_amount,final_amount,payment_method,payment_status,ordered_at,order_status,coupon_discount_amount,product_offer_amount,delivery_charge").Order("ordered_at DESC").Find(&orders); tx.Error != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"message": "Orders Empty!",
 		})
@@ -44,6 +44,7 @@ func ShowOrdersAdmin(c *gin.Context) {
 	}
 
 	for i, val := range orders {
+		val.TotalAmount += float64(val.DeliveryCharge)
 		var items []model.OrderItemResponse
 		if tx := database.DB.Model(&model.OrderItem{}).Select("product_id,quantity,amount,order_status").Where("order_id=?", val.OrderID).Find(&items); tx.Error != nil {
 			c.JSON(http.StatusNotFound, gin.H{

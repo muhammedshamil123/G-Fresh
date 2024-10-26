@@ -88,6 +88,7 @@ type Order struct {
 	OrderStatus          string          `validate:"required" json:"order_status" gorm:"column:order_status"`
 	CouponDiscountAmount float64         `validate:"required,number" json:"coupon_discount_amount"`
 	ProductOfferAmount   float64         `validate:"required,number" json:"product_offer_amount"`
+	DeliveryCharge       uint            `json:"delivery_charge"`
 }
 
 type OrderItem struct {

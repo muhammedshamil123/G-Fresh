@@ -81,6 +81,7 @@ type OrderResponce struct {
 	OrderStatus          string    `json:"order_status"`
 	CouponDiscountAmount float64   `json:"coupon_discount_amount"`
 	ProductOfferAmount   float64   `json:"product_offer_amount"`
+	DeliveryCharge       uint      `json:"delivery_charge"`
 }
 
 type OrderItemResponse struct {
@@ -130,4 +131,18 @@ type AmountInformation struct {
 	TotalProductSold           uint    `json:"total_products_sold"`
 	TotalProductReturned       uint    `json:"total_products_returned"`
 	TotalCustomers             uint    `json:"total_customers"`
+}
+type GeoCodeResponse struct {
+	Results []struct {
+		Geometry struct {
+			Lat float64 `json:"lat"`
+			Lng float64 `json:"lng"`
+		} `json:"geometry"`
+		Components struct {
+			Postcode string `json:"postcode"`
+			Country  string `json:"country"`
+			State    string `json:"state"`
+			City     string `json:"city"`
+		} `json:"components"`
+	} `json:"results"`
 }
