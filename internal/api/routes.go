@@ -53,7 +53,10 @@ func AdminRoutes(router *gin.Engine) {
 
 	//salesReport
 	router.GET("/admin/sales/:download", controllers.AdminAuthorization(), controllers.SalesReport)
-	// router.GET("/admin/sales/report", controllers.AdminAuthorization(), controllers.GeneratePDFReport)
+
+	//best selling
+	router.GET("/admin/bestselling/products", controllers.AdminAuthorization(), controllers.BestSellingProducts)
+	router.GET("/admin/bestselling/category", controllers.AdminAuthorization(), controllers.BestSellingCategory)
 }
 
 func UserRoutes(router *gin.Engine) {
