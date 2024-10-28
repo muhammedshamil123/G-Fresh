@@ -106,6 +106,7 @@ func UserRoutes(router *gin.Engine) {
 	router.POST("/user/order/:aid/:method/:referral/:coupon", controllers.UserAuthorization(), controllers.AddOrder)
 	router.PATCH("/user/order/cancel/:pid/:orderid", controllers.UserAuthorization(), controllers.CancelOrders)
 	router.PATCH("/user/order/return/:pid/:orderid", controllers.UserAuthorization(), controllers.OrderReturn)
+	router.GET("/user/order/invoice/:orderid", controllers.UserAuthorization(), controllers.OrderInvoice)
 
 	//payment
 	router.LoadHTMLGlob("templates/*")

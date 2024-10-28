@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"bytes"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/jung-kurt/gofpdf/v2"
 	"github.com/razorpay/razorpay-go"
 	"gorm.io/gorm"
 )
@@ -840,10 +842,24 @@ func OrderReturn(c *gin.Context) {
 }
 
 func FailedPayements(c *gin.Context) {
+	user, exist := c.Get("email")
+	userId := 0
+	if !exist {
+		c.JSON(http.StatusNotFound, gin.H{
+			"message": "failed to retrieve data from the database, or the data doesn't exist",
+		})
+		return
+	}
+	if tx := database.DB.Model(&model.User{}).Select("id").Where("email = ?", user).First(&userId); tx.Error != nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"message": "User does not exists!",
+		})
+		return
+	}
 	id, _ := strconv.Atoi(c.Query("order_id"))
 	orderID = uint(id)
 	var order model.Order
-	if tx := database.DB.Model(&model.Order{}).Where("order_id = ?", orderID).First(&order); tx.Error != nil {
+	if tx := database.DB.Model(&model.Order{}).Where("order_id = ? AND user_id = ?", orderID, userId).First(&order); tx.Error != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "Order not found!",
 		})
@@ -865,4 +881,154 @@ func FailedPayements(c *gin.Context) {
 		})
 		return
 	}
+}
+func OrderInvoice(c *gin.Context) {
+	user, exist := c.Get("email")
+	if !exist {
+		c.JSON(http.StatusNotFound, gin.H{
+			"message": "failed to retrieve data from the database, or the data doesn't exist",
+		})
+		return
+	}
+	var User model.User
+	if tx := database.DB.Model(&model.User{}).Where("email = ?", user).First(&User); tx.Error != nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"message": "User does not exists!",
+		})
+		return
+	}
+	id, _ := strconv.Atoi(c.Query("orderid"))
+	orderID = uint(id)
+	var order model.Order
+	if tx := database.DB.Model(&model.Order{}).Where("order_id = ? AND user_id = ?", orderID, User.ID).First(&order); tx.Error != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Order not found!",
+		})
+		return
+	}
+	var orders []model.OrderItem
+	if tx := database.DB.Model(&model.OrderItem{}).Where("order_id = ? AND user_id = ?", orderID, User.ID).Find(&orders); tx.Error != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Order not found!",
+		})
+		return
+	}
+	pdfBytes, err := GeneratePDFInvoice(order, orders, User)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status":  false,
+			"message": "failed to generate PDF",
+			"error":   err.Error(),
+		})
+		return
+	}
+	c.Writer.Header().Set("Content-type", "application/pdf")
+	c.Writer.Header().Set("Content-Disposition", "inline; filename=salesreport.pdf")
+	c.Writer.Write(pdfBytes)
+}
+func GeneratePDFInvoice(order model.Order, orderItems []model.OrderItem, user model.User) ([]byte, error) {
+	pdf := gofpdf.New("P", "mm", "Tabloid", "")
+	pdf.AddPage()
+
+	pdf.SetFont("Arial", "B", 24)
+	pdf.SetTextColor(0, 0, 0)
+	pdf.CellFormat(260, 10, "Order Invoice", "0", 0, "C", false, 0, "")
+	pdf.Ln(30)
+
+	pdf.SetFont("Arial", "B", 22)
+	pdf.SetTextColor(0, 0, 0)
+	pdf.Cell(40, 10, "G-FRESH")
+	pdf.Ln(20)
+
+	pdf.SetFont("Arial", "", 13)
+	pdf.CellFormat(50, 8, "Maradu,452", "0", 0, "L", false, 0, "")
+
+	pdf.CellFormat(130, 8, "", "0", 0, "C", false, 0, "")
+	pdf.CellFormat(25, 8, "Date", "1", 0, "C", false, 0, "")
+	year, month, date := order.OrderedAt.Date()
+
+	pdf.CellFormat(50, 8, fmt.Sprintf("%v-%v-%v", date, month, year), "1", 1, "C", false, 0, "")
+
+	pdf.CellFormat(50, 8, "Kochi, 678496, Eranakulam", "0", 0, "L", false, 0, "")
+
+	pdf.CellFormat(130, 8, "", "0", 0, "C", false, 0, "")
+	pdf.CellFormat(25, 8, "Order ID", "1", 0, "C", false, 0, "")
+	pdf.CellFormat(50, 8, fmt.Sprintf("%v", order.OrderID), "1", 1, "C", false, 0, "")
+
+	pdf.CellFormat(50, 8, "Phone: 7845126903", "0", 0, "L", false, 0, "")
+
+	pdf.CellFormat(130, 8, "", "0", 0, "C", false, 0, "")
+	pdf.CellFormat(25, 8, "User ID", "1", 0, "C", false, 0, "")
+	pdf.CellFormat(50, 8, fmt.Sprintf("%v", order.UserID), "1", 1, "C", false, 0, "")
+
+	pdf.Ln(20)
+
+	pdf.SetFont("Arial", "B", 13)
+	pdf.CellFormat(30, 8, "Customer", "0", 1, "L", false, 0, "")
+	pdf.SetFont("Arial", "", 13)
+	pdf.CellFormat(30, 8, fmt.Sprintf("%v", user.Name), "0", 1, "L", false, 0, "")
+	pdf.CellFormat(50, 8, fmt.Sprintf("%v, %v", order.ShippingAddress.StreetName, order.ShippingAddress.StreetNumber), "0", 1, "L", false, 0, "")
+	pdf.CellFormat(50, 8, fmt.Sprintf("%v, %v, %v", order.ShippingAddress.City, order.ShippingAddress.PinCode, order.ShippingAddress.State), "0", 1, "L", false, 0, "")
+	pdf.CellFormat(50, 8, fmt.Sprintf("%v", order.ShippingAddress.PhoneNumber), "0", 1, "L", false, 0, "")
+	pdf.Ln(20)
+
+	pdf.SetFont("Arial", "B", 13)
+	pdf.CellFormat(20, 10, "S.NO", "1", 0, "C", false, 0, "")
+	pdf.CellFormat(110, 10, "Name", "1", 0, "C", false, 0, "")
+	pdf.CellFormat(50, 10, "Price", "1", 0, "C", false, 0, "")
+	pdf.CellFormat(30, 10, "Qty", "1", 0, "C", false, 0, "")
+	pdf.CellFormat(50, 10, "Amount", "1", 1, "C", false, 0, "")
+
+	pdf.SetFont("Arial", "", 13)
+	for i, val := range orderItems {
+		pdf.CellFormat(20, 10, fmt.Sprintf("%v", i+1), "1", 0, "C", false, 0, "")
+		var product model.Product
+		database.DB.Model(&model.Product{}).Where("id=?", val.ProductID).First(&product)
+		pdf.CellFormat(110, 10, fmt.Sprintf("%v", product.Name), "1", 0, "L", false, 0, "")
+		pdf.CellFormat(50, 10, fmt.Sprintf("%v", product.Price), "1", 0, "C", false, 0, "")
+		pdf.CellFormat(30, 10, fmt.Sprintf("%v", val.Quantity), "1", 0, "C", false, 0, "")
+		pdf.CellFormat(50, 10, fmt.Sprintf("%v", product.Price*float64(val.Quantity)), "1", 1, "R", false, 0, "")
+	}
+	for i := len(orderItems); i < 10; i++ {
+		pdf.CellFormat(20, 10, "", "1", 0, "C", false, 0, "")
+		pdf.CellFormat(110, 10, "", "1", 0, "L", false, 0, "")
+		pdf.CellFormat(50, 10, "", "1", 0, "C", false, 0, "")
+		pdf.CellFormat(30, 10, "", "1", 0, "C", false, 0, "")
+		pdf.CellFormat(50, 10, "", "1", 1, "R", false, 0, "")
+	}
+	pdf.SetFont("Arial", "B", 13)
+	pdf.CellFormat(210, 10, "Total", "1", 0, "C", false, 0, "")
+	pdf.CellFormat(50, 10, fmt.Sprintf("%v", order.FinalAmount), "1", 1, "R", false, 0, "")
+
+	pdf.Ln(10)
+	pdf.SetFont("Arial", "", 13)
+	pdf.CellFormat(130, 10, "", "0", 0, "R", false, 0, "")
+	pdf.CellFormat(80, 10, "Total offer", "0", 0, "R", false, 0, "")
+	pdf.CellFormat(50, 10, fmt.Sprintf("- %v", order.ProductOfferAmount), "0", 1, "R", false, 0, "")
+
+	pdf.CellFormat(130, 10, "", "0", 0, "R", false, 0, "")
+	pdf.CellFormat(80, 10, "Total Discount", "0", 0, "R", false, 0, "")
+	pdf.CellFormat(50, 10, fmt.Sprintf("- %v", order.CouponDiscountAmount), "0", 1, "R", false, 0, "")
+
+	pdf.CellFormat(130, 10, "", "0", 0, "R", false, 0, "")
+	pdf.CellFormat(80, 10, "Delivery Charge", "0", 0, "R", false, 0, "")
+	pdf.CellFormat(50, 10, fmt.Sprintf("+ %v", order.DeliveryCharge), "0", 1, "R", false, 0, "")
+
+	pdf.SetFont("Arial", "B", 13)
+	pdf.CellFormat(130, 10, "", "0", 0, "R", false, 0, "")
+	pdf.CellFormat(80, 10, "Final Amount", "0", 0, "R", false, 0, "")
+	pdf.CellFormat(50, 10, fmt.Sprintf("%v", order.TotalAmount+float64(order.DeliveryCharge)), "0", 1, "R", false, 0, "")
+
+	pdf.SetY(-50)
+	pdf.SetFont("Arial", "I", 10)
+	pdf.SetTextColor(128, 128, 128)
+	pdf.CellFormat(0, 10, "If you have any questionsabout this price quote, please contact", "", 1, "C", false, 0, "")
+	pdf.CellFormat(0, 10, "G-FRESH, 7845126903, gfreshproject@gmail.com", "", 0, "C", false, 0, "")
+	var pdfBytes bytes.Buffer
+	err := pdf.Output(&pdfBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	return pdfBytes.Bytes(), nil
 }
