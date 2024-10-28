@@ -681,14 +681,18 @@ func CancelOrders(c *gin.Context) {
 
 }
 
+var orderID uint
+
 func RenderRazorpay(c *gin.Context) {
+	orderID = o_id
 	c.HTML(http.StatusOK, "razorpay.html", nil)
 }
 func CreateOrder(c *gin.Context) {
 	client := razorpay.NewClient("rzp_test_Mg8qA7Z2ycbKOB", "XEPMrjfiphZjlQHlmlxmgWy6")
 
 	var order model.Order
-	database.DB.Model(&model.Order{}).Where("order_id=?", o_id).First(&order)
+	database.DB.Model(&model.Order{}).Where("order_id=?", orderID).First(&order)
+	order.TotalAmount = order.TotalAmount + float64(order.DeliveryCharge)
 	amount := RoundDecimalValue(order.TotalAmount * 100)
 	println(amount, order.TotalAmount)
 	razorpayOrder, err := client.Order.Create(map[string]interface{}{
@@ -700,7 +704,6 @@ func CreateOrder(c *gin.Context) {
 	if err != nil {
 		fmt.Println("Error creating Razorpay order:", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error creating order"})
-		deleteOrder(int(o_id))
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
@@ -708,11 +711,10 @@ func CreateOrder(c *gin.Context) {
 		"amount":   amount,
 		"currency": "INR",
 	})
-	fmt.Println(razorpayOrder)
 }
 
 func VerifyPayment(c *gin.Context) {
-	orderid := strconv.Itoa(int(o_id))
+	orderid := strconv.Itoa(int(orderID))
 	fmt.Println(orderid)
 	var paymentInfo struct {
 		PaymentID string `json:"razorpay_payment_id"`
@@ -722,19 +724,17 @@ func VerifyPayment(c *gin.Context) {
 
 	if err := c.BindJSON(&paymentInfo); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid payment information"})
-		deleteOrder(int(o_id))
 		return
 	}
 	fmt.Println(paymentInfo)
 	secret := "XEPMrjfiphZjlQHlmlxmgWy6"
 	if !verifySignature(paymentInfo.OrderID, paymentInfo.PaymentID, paymentInfo.Signature, secret) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid payment signature"})
-		deleteOrder(int(o_id))
 		return
 	}
 	// database.DB.AutoMigrate(&model.Payment{})
 	amount := 0.0
-	database.DB.Model(&model.Order{}).Where("order_id =?", o_id).Select("total_amount").First(&amount)
+	database.DB.Model(&model.Order{}).Where("order_id =?", orderID).Select("total_amount").First(&amount)
 	payement := model.Payment{
 		OrderID:           orderid,
 		WalletPaymentID:   "",
@@ -745,7 +745,6 @@ func VerifyPayment(c *gin.Context) {
 		PaymentStatus:     "PAID",
 		Amount:            amount,
 	}
-	fmt.Println(payement)
 	database.DB.Model(&model.Payment{}).Create(&payement)
 	database.DB.Model(&model.Order{}).Where("order_id=?", orderid).Update("payment_status", payement.PaymentStatus)
 	o_id = 0
@@ -840,15 +839,30 @@ func OrderReturn(c *gin.Context) {
 	})
 }
 
-func deleteOrder(order_id int) {
-	var order []model.OrderItem
-	database.DB.Model(&model.OrderItem{}).Where("order_id=?", order_id).Find(&order)
-	for _, val := range order {
-		var product model.Product
-		database.DB.Model(&model.Product{}).Where("id=?", val.ProductID).First(&product)
-		product.StockLeft += val.Quantity
-		database.DB.Model(&model.Product{}).Where("id=?", val.ProductID).Update("stock_left", product.StockLeft)
+func FailedPayements(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Query("order_id"))
+	orderID = uint(id)
+	var order model.Order
+	if tx := database.DB.Model(&model.Order{}).Where("order_id = ?", orderID).First(&order); tx.Error != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Order not found!",
+		})
+		return
 	}
-	database.DB.Model(&model.Order{}).Where("order_id=?", order_id).Delete(&model.Order{})
-	database.DB.Model(&model.OrderItem{}).Where("order_id=?", order_id).Delete(&model.OrderItem{})
+	if order.PaymentMethod == "Razorpay" && order.PaymentStatus == "PENDING" {
+		c.HTML(http.StatusOK, "razorpay.html", nil)
+	}
+	if order.PaymentMethod != "Razorpay" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Invalid Payment method!",
+		})
+		return
+	}
+
+	if order.PaymentStatus != "PENDING" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Payment already done!",
+		})
+		return
+	}
 }

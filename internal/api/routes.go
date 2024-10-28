@@ -106,10 +106,13 @@ func UserRoutes(router *gin.Engine) {
 	router.POST("/user/order/:aid/:method/:referral/:coupon", controllers.UserAuthorization(), controllers.AddOrder)
 	router.PATCH("/user/order/cancel/:pid/:orderid", controllers.UserAuthorization(), controllers.CancelOrders)
 	router.PATCH("/user/order/return/:pid/:orderid", controllers.UserAuthorization(), controllers.OrderReturn)
+
+	//payment
 	router.LoadHTMLGlob("templates/*")
-	router.GET("/user/order/payement/", controllers.UserAuthorization(), controllers.RenderRazorpay)
+	router.GET("/user/order/payement", controllers.UserAuthorization(), controllers.RenderRazorpay)
 	router.POST("/user/order/payement/create-order", controllers.UserAuthorization(), controllers.CreateOrder)
 	router.POST("/user/order/payement/verify-payment", controllers.UserAuthorization(), controllers.VerifyPayment)
+	router.GET("/user/order/payement/failed/:order_id", controllers.UserAuthorization(), controllers.FailedPayements)
 
 	//rating
 	router.POST("/user/rating/:pid/:rating", controllers.UserAuthorization(), controllers.AddRating)
