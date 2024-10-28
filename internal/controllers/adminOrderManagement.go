@@ -510,3 +510,40 @@ func ReturnRequests(c *gin.Context) {
 		}
 	}
 }
+func AdminOrderInvoice(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Query("orderid"))
+	orderID = uint(id)
+	var order model.Order
+	if tx := database.DB.Model(&model.Order{}).Where("order_id = ?", orderID).First(&order); tx.Error != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Order not found!",
+		})
+		return
+	}
+	var orders []model.OrderItem
+	if tx := database.DB.Model(&model.OrderItem{}).Where("order_id = ?", orderID).Find(&orders); tx.Error != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Order not found!",
+		})
+		return
+	}
+	var User model.User
+	if tx := database.DB.Model(&model.User{}).Where("id = ?", order.UserID).First(&User); tx.Error != nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"message": "User does not exists!",
+		})
+		return
+	}
+	pdfBytes, err := GeneratePDFInvoice(order, orders, User)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status":  false,
+			"message": "failed to generate PDF",
+			"error":   err.Error(),
+		})
+		return
+	}
+	c.Writer.Header().Set("Content-type", "application/pdf")
+	c.Writer.Header().Set("Content-Disposition", "inline; filename=salesreport.pdf")
+	c.Writer.Write(pdfBytes)
+}

@@ -5,11 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Payment Page</title>
 </head>
-<body>
-    <form id="paymentForm">
-        <button type="button" onclick="makePayment()">Pay Now</button>
-    </form>
-    
+<body onload="makePayment()">
     <script>
         function makePayment() {
             fetch('http://localhost:8080/user/order/payement/create-order', {
@@ -18,14 +14,14 @@
             .then(response => response.json())
             .then(data => {
                 var options = {
-                    "key": "rzp_test_Mg8qA7Z2ycbKOB",  // Enter the Key ID from Razorpay Dashboard
-                    "amount": data.amount,  // Amount is in paise
+                    "key": "rzp_test_Mg8qA7Z2ycbKOB", 
+                    "amount": data.amount,  
                     "currency": data.currency,
                     "name": "G-Fresh",
                     "description": "Razorpay",
-                    "order_id": data.order_id,  // Order ID from the API response
+                    "order_id": data.order_id,  
                     "handler": function (response) {
-                        // Verify payment
+                    
                         fetch('http://localhost:8080/user/order/payement/verify-payment', {
                             method: 'POST',
                             headers: {

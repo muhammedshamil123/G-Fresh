@@ -44,6 +44,7 @@ func AdminRoutes(router *gin.Engine) {
 	router.GET("/admin/orders/return", controllers.AdminAuthorization(), controllers.ReturnRequests)
 	router.PATCH("/admin/orders/cancel/:pid/:orderid", controllers.AdminAuthorization(), controllers.CancelOrdersAdmin)
 	router.PATCH("/admin/orders/status/:pid/:orderid", controllers.AdminAuthorization(), controllers.ChangeStatus)
+	router.GET("/admin/order/invoice/:orderid", controllers.AdminAuthorization(), controllers.AdminOrderInvoice)
 
 	//coupons
 	router.GET("/admin/coupon", controllers.AdminAuthorization(), controllers.ShowCoupon)
