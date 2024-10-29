@@ -22,6 +22,8 @@ import (
 
 var o_id uint
 
+var FAILED map[uint]int
+
 func AddOrder(c *gin.Context) {
 
 	// database.DB.AutoMigrate(&model.Order{})
@@ -866,6 +868,17 @@ func FailedPayements(c *gin.Context) {
 		return
 	}
 	if order.PaymentMethod == "Razorpay" && order.PaymentStatus == "PENDING" {
+		if FAILED == nil {
+			FAILED = make(map[uint]int)
+		}
+		if FAILED[order.OrderID] >= 3 {
+			deleteOrder(int(order.OrderID))
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "Maximm limit for payment reached reached!",
+			})
+			return
+		}
+		FAILED[order.OrderID]++
 		c.HTML(http.StatusOK, "razorpay.html", nil)
 	}
 	if order.PaymentMethod != "Razorpay" {
@@ -1031,4 +1044,16 @@ func GeneratePDFInvoice(order model.Order, orderItems []model.OrderItem, user mo
 	}
 
 	return pdfBytes.Bytes(), nil
+}
+func deleteOrder(order_id int) {
+	var order []model.OrderItem
+	database.DB.Model(&model.OrderItem{}).Where("order_id=?", order_id).Find(&order)
+	for _, val := range order {
+		var product model.Product
+		database.DB.Model(&model.Product{}).Where("id=?", val.ProductID).First(&product)
+		product.StockLeft += val.Quantity
+		database.DB.Model(&model.Product{}).Where("id=?", val.ProductID).Update("stock_left", product.StockLeft)
+	}
+	database.DB.Model(&model.Order{}).Where("order_id=?", order_id).Delete(&model.Order{})
+	database.DB.Model(&model.OrderItem{}).Where("order_id=?", order_id).Delete(&model.OrderItem{})
 }
