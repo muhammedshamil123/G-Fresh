@@ -178,3 +178,11 @@ type CouponUsage struct {
 	CouponCode string `json:"coupon_code"`
 	UsageCount uint   `json:"usage_count"`
 }
+
+type Request struct {
+	RequestID uint   `json:"request_id" gorm:"autoCreateTime"`
+	ProductID uint   `validate:"required,number" json:"product_id"`
+	UserID    uint   `gorm:"column:user_id" validate:"required,number" json:"user_id"`
+	Count     uint   `validate:"number" json:"count"`
+	Response  string `json:"response"`
+}

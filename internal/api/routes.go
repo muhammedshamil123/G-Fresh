@@ -58,6 +58,10 @@ func AdminRoutes(router *gin.Engine) {
 	//best selling
 	router.GET("/admin/bestselling/products", controllers.AdminAuthorization(), controllers.BestSellingProducts)
 	router.GET("/admin/bestselling/category", controllers.AdminAuthorization(), controllers.BestSellingCategory)
+
+	//request
+	router.GET("/admin/request/view", controllers.AdminAuthorization(), controllers.ViewRequests)
+	router.PATCH("/admin/request/response/:request_id/:count", controllers.AdminAuthorization(), controllers.RequestResponse)
 }
 
 func UserRoutes(router *gin.Engine) {
@@ -121,4 +125,9 @@ func UserRoutes(router *gin.Engine) {
 
 	//wallet
 	router.GET("/user/wallet", controllers.UserAuthorization(), controllers.ShowWallet)
+
+	//request
+	router.GET("/user/request/view", controllers.UserAuthorization(), controllers.ViewRequestsUser)
+	router.POST("/user/request/send/:product_id/:count", controllers.UserAuthorization(), controllers.SendRequest)
+	router.DELETE("/user/request/delete/:request_id", controllers.UserAuthorization(), controllers.DeleteRequest)
 }
