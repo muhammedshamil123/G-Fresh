@@ -97,14 +97,14 @@ func UserRoutes(router *gin.Engine) {
 	router.DELETE("/user/cart/delete/:pid", controllers.UserAuthorization(), controllers.DeleteFromCart)
 
 	//search
-	router.GET("/user/products/lowtohigh/:category", controllers.UserAuthorization(), controllers.Search_P_LtoH)
-	router.GET("/user/products/hightolow/:category", controllers.UserAuthorization(), controllers.Search_P_HtoL)
-	router.GET("/user/products/new/:category", controllers.UserAuthorization(), controllers.SearchNew)
-	router.GET("/user/products/AtoZ/:category", controllers.UserAuthorization(), controllers.SearchAtoZ)
-	router.GET("/user/products/ZtoA/:category", controllers.UserAuthorization(), controllers.SearchZtoA)
-	router.GET("/user/products/rating/:category", controllers.UserAuthorization(), controllers.SearchAverageRating)
-	router.GET("/user/products/popular/:category", controllers.UserAuthorization(), controllers.SearchPopular)
-	router.GET("/user/products/featured/:category", controllers.UserAuthorization(), controllers.SearchFeatured)
+	router.GET("/user/products/search/:sort/:category", controllers.UserAuthorization(), controllers.Search)
+	// router.GET("/user/products/hightolow/:category", controllers.UserAuthorization(), controllers.Search_P_HtoL)
+	// router.GET("/user/products/new/:category", controllers.UserAuthorization(), controllers.SearchNew)
+	// router.GET("/user/products/AtoZ/:category", controllers.UserAuthorization(), controllers.SearchAtoZ)
+	// router.GET("/user/products/ZtoA/:category", controllers.UserAuthorization(), controllers.SearchZtoA)
+	// router.GET("/user/products/rating/:category", controllers.UserAuthorization(), controllers.SearchAverageRating)
+	// router.GET("/user/products/popular/:category", controllers.UserAuthorization(), controllers.SearchPopular)
+	// router.GET("/user/products/featured/:category", controllers.UserAuthorization(), controllers.SearchFeatured)
 
 	//order
 	router.GET("/user/order", controllers.UserAuthorization(), controllers.ShowOrders)
