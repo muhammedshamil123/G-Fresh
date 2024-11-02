@@ -177,6 +177,7 @@ type CouponUsage struct {
 	UserID     uint   `json:"user_id"`
 	CouponCode string `json:"coupon_code"`
 	UsageCount uint   `json:"usage_count"`
+	OrderID    uint   `json:"order_id"`
 }
 
 type Request struct {

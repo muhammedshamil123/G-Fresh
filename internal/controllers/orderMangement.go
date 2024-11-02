@@ -9,6 +9,7 @@ import (
 	"g-fresh/internal/database"
 	"g-fresh/internal/model"
 	"g-fresh/internal/utils"
+	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -244,11 +245,19 @@ func AddOrder(c *gin.Context) {
 						UserID:     order.UserID,
 						CouponCode: coupon,
 						UsageCount: 1,
+						OrderID:    order.OrderID,
 					}
 					database.DB.Model(&model.CouponUsage{}).Create(&usage)
 				}
 			} else {
-				usage.UsageCount++
+				usage.UsageCount += 1
+				usages := model.CouponUsage{
+					UserID:     order.UserID,
+					CouponCode: coupon,
+					UsageCount: usage.UsageCount,
+					OrderID:    order.OrderID,
+				}
+				database.DB.Model(&model.CouponUsage{}).Create(&usages)
 				database.DB.Model(&model.CouponUsage{}).Where("coupon_code=? AND user_id=?", coupon, order.UserID).Update("usage_count", usage.UsageCount)
 			}
 		}
@@ -479,6 +488,7 @@ func CancelOrders(c *gin.Context) {
 		})
 		return
 	}
+
 	if pid == "" {
 		if order.OrderStatus == "CANCELED" {
 			c.JSON(http.StatusInternalServerError, gin.H{
@@ -576,6 +586,10 @@ func CancelOrders(c *gin.Context) {
 
 		return
 	}
+	var product model.Product
+	if tx := database.DB.Model(&model.Product{}).Where("id=?", pid).First(&product); tx.Error != nil {
+		fmt.Println("product does not exist")
+	}
 	var oitem model.OrderItem
 	if tx := database.DB.Model(&model.OrderItem{}).Where("order_id=? AND user_id=? AND product_id=?", oid, userId, pid).First(&oitem); tx.Error != nil {
 		c.JSON(http.StatusNotFound, gin.H{
@@ -596,7 +610,28 @@ func CancelOrders(c *gin.Context) {
 		return
 	}
 	order.ItemCount -= 1
+
+	var couponUsage model.CouponUsage
+	if tx := database.DB.Model(&model.CouponUsage{}).Where("order_id=?", order.OrderID).First(&couponUsage); tx.Error == nil {
+		var coupon model.CouponInventory
+		if ty := database.DB.Model(&model.CouponInventory{}).Where("coupon_code=?", couponUsage.CouponCode).First(&coupon); ty.Error != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"message": "Coupon not found!",
+			})
+			return
+		}
+
+		rem := order.FinalAmount - (product.Price * float64(oitem.Quantity))
+		log.Println("(rem, coupon):= ", rem, coupon.MinimumAmount)
+		if coupon.MinimumAmount > rem {
+			log.Println("before deduction (item amount, couponDiscount):= ", oitem.Amount, order.CouponDiscountAmount)
+			oitem.Amount = oitem.Amount - order.CouponDiscountAmount
+			database.DB.Model(&model.Order{}).Where("order_id=?", order.OrderID).Update("coupon_discount_amount", 0)
+			log.Println("after deduction (item amount, couponDiscount):= ", oitem.Amount, order.CouponDiscountAmount)
+		}
+	}
 	order.TotalAmount -= oitem.Amount
+	log.Println("after deduction (order amount):= ", order.TotalAmount)
 	var orderitems []model.OrderItem
 	flag := true
 	database.DB.Model(&model.OrderItem{}).Where("order_id=? AND user_id=?", oid, userId).Find(&orderitems)
@@ -671,10 +706,7 @@ func CancelOrders(c *gin.Context) {
 			"message": "Order Cancelled!",
 		})
 	}
-	var product model.Product
-	if tx := database.DB.Model(&model.Product{}).Where("id=?", pid).First(&product); tx.Error != nil {
-		fmt.Println("product does not exist")
-	}
+
 	product.StockLeft += oitem.Quantity
 	if tx := database.DB.Model(&model.Product{}).Where("id=?", pid).Update("stock_left", product.StockLeft); tx.Error != nil {
 		fmt.Println("stock incerment failed")
