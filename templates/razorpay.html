@@ -8,6 +8,7 @@
 <body onload="makePayment()">
     <script>
         function makePayment() {
+            let count=0;
             fetch('http://localhost:8080/user/order/payement/create-order', {
                 method: 'POST'
             })
@@ -43,6 +44,25 @@
                         "name": "G-fresh",
                         "email": "gfreshproject2024@gmail.com",
                         "contact": "9947686494"
+                    },
+                    "modal": {
+                        "ondismiss": function() {
+                            if(count>=3){
+                                alert("Maximum payment attempt reached.");
+                                // fetch('http://localhost:8080/user/order/payement/failed/' + data.order_id, {
+                                //     method: 'GET'
+                                // })
+                                // .then(response => response.json())
+                                // .then(data => {
+                                //     console.log("Payment failure recorded", data);
+                                // })
+                                // .catch(error => console.error('Error handling failed payment:', error));
+                            }
+                            console.log("Payment was not completed or was cancelled.");
+                            alert("Payment failed or was cancelled.");
+                            count++
+                        
+                        }
                     }
                 };
     

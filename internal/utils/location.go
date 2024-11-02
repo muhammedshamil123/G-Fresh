@@ -9,16 +9,16 @@ import (
 )
 
 func CalculateDistance(userPincode string) uint {
-	apiKey := "6b57bfc6a50448ce9ba966b0a86c3532"
+	api := "6b57bfc6a50448ce9ba966b0a86c3532"
 	pincode := userPincode
 	pincodeAdmin := "682304"
 
-	lat, lng, err := getCoordinatesFromPincode(pincode, apiKey)
+	lat, lng, err := getCoordinatesFromPincode(pincode, api)
 	if err != nil {
 		fmt.Println("Error:", err)
 		return 0
 	}
-	lata, lnga, err := getCoordinatesFromPincode(pincodeAdmin, apiKey)
+	lata, lnga, err := getCoordinatesFromPincode(pincodeAdmin, api)
 	if err != nil {
 		fmt.Println("Error:", err)
 		return 0

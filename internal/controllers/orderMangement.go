@@ -75,7 +75,6 @@ func AddOrder(c *gin.Context) {
 		return
 	}
 	delivery_charge := utils.CalculateDistance(address.PostalCode)
-	fmt.Println(delivery_charge)
 	order.UserID = userId
 	order.ShippingAddress = model.ShippingAddress{
 		PhoneNumber:  address.PhoneNumber,
@@ -99,7 +98,6 @@ func AddOrder(c *gin.Context) {
 			return
 		}
 		var referralhistory model.UserReferralHistory
-		// database.DB.AutoMigrate(&model.UserReferralHistory{})
 		if tx := database.DB.Model(&model.UserReferralHistory{}).Where("user_id=?", order.UserID).First(&referralhistory); tx.Error != nil {
 			newreferralhistory := model.UserReferralHistory{
 				UserID:       order.UserID,
@@ -262,7 +260,6 @@ func AddOrder(c *gin.Context) {
 				"message": "Payement pending!",
 				"order":   orders,
 			})
-			database.DB.Model(&model.CartItems{}).Where("user_id=?", order.UserID).Delete(&model.CartItems{})
 			return
 		} else if order.PaymentMethod == "Wallet" {
 			var user model.User
@@ -682,7 +679,6 @@ func CancelOrders(c *gin.Context) {
 	if tx := database.DB.Model(&model.Product{}).Where("id=?", pid).Update("stock_left", product.StockLeft); tx.Error != nil {
 		fmt.Println("stock incerment failed")
 	}
-
 }
 
 var orderID uint
@@ -698,7 +694,6 @@ func CreateOrder(c *gin.Context) {
 	database.DB.Model(&model.Order{}).Where("order_id=?", orderID).First(&order)
 	order.TotalAmount = order.TotalAmount + float64(order.DeliveryCharge)
 	amount := RoundDecimalValue(order.TotalAmount * 100)
-	println(amount, order.TotalAmount)
 	razorpayOrder, err := client.Order.Create(map[string]interface{}{
 		"amount":   amount,
 		"currency": "INR",
@@ -718,8 +713,8 @@ func CreateOrder(c *gin.Context) {
 }
 
 func VerifyPayment(c *gin.Context) {
+	fmt.Println("here")
 	orderid := strconv.Itoa(int(orderID))
-	fmt.Println(orderid)
 	var paymentInfo struct {
 		PaymentID string `json:"razorpay_payment_id"`
 		OrderID   string `json:"razorpay_order_id"`
@@ -751,7 +746,10 @@ func VerifyPayment(c *gin.Context) {
 	}
 	database.DB.Model(&model.Payment{}).Create(&payement)
 	database.DB.Model(&model.Order{}).Where("order_id=?", orderid).Update("payment_status", payement.PaymentStatus)
+	var order model.Order
+	database.DB.Model(&model.Order{}).Where("order_id=?", orderid).First(&order)
 	o_id = 0
+	database.DB.Model(&model.CartItems{}).Where("user_id=?", order.UserID).Delete(&model.CartItems{})
 	c.JSON(http.StatusOK, gin.H{"status": "Payment verified successfully"})
 }
 

@@ -363,7 +363,7 @@ func ShowCart(c *gin.Context) {
 		coupon_amount := (product.Price * float64(couponoffer)) / 100
 		if product.StockLeft < val.Quantity {
 			if product.StockLeft <= 0 {
-				c.JSON(http.StatusNotModified, gin.H{
+				c.JSON(http.StatusOK, gin.H{
 					"item":         product,
 					"Availabitity": "Product unavailable",
 				})
