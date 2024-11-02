@@ -119,6 +119,7 @@ func GetProduct(c *gin.Context) {
 }
 func Search(c *gin.Context) {
 	cat, _ := strconv.Atoi(c.Query("category"))
+	available := c.Query("available")
 	if cat != 0 && !categoryExist(cat) {
 		c.JSON(http.StatusOK, gin.H{
 			"Category": "Does not exist",
@@ -176,10 +177,13 @@ func Search(c *gin.Context) {
 	}
 
 	for _, val := range products {
-		c.JSON(http.StatusOK, gin.H{
-			"products": val,
-		})
+		if (available != "true") || (available == "true" && val.StockLeft > 0) {
+			c.JSON(http.StatusOK, gin.H{
+				"products": val,
+			})
+		}
 	}
+
 }
 func Search_P_LtoH(cat int) ([]model.ViewProductList, error) {
 	// cat, _ := strconv.Atoi(c.Query("category"))

@@ -97,7 +97,7 @@ func UserRoutes(router *gin.Engine) {
 	router.DELETE("/user/cart/delete/:pid", controllers.UserAuthorization(), controllers.DeleteFromCart)
 
 	//search
-	router.GET("/user/products/search/:sort/:category", controllers.UserAuthorization(), controllers.Search)
+	router.GET("/user/products/search/:sort/:category/:available", controllers.UserAuthorization(), controllers.Search)
 
 	//order
 	router.GET("/user/order", controllers.UserAuthorization(), controllers.ShowOrders)
