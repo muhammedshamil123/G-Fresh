@@ -42,7 +42,6 @@ func BestSellingProducts(c *gin.Context) {
 }
 
 func BestSellingCategory(c *gin.Context) {
-	// var products []model.ViewProductList
 	type count struct {
 		Name       string `json:"name"`
 		Id         uint   `json:"id"`

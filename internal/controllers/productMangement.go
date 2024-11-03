@@ -33,8 +33,6 @@ func GetProductList(c *gin.Context) {
 }
 
 func AddProducts(c *gin.Context) {
-	// database.DB.AutoMigrate(&model.Product{})
-
 	var product model.AddProductsRequest
 	if err := c.BindJSON(&product); err != nil {
 

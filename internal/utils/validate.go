@@ -56,7 +56,6 @@ func Validate(value interface{}) error {
 		"RestaurantID_required":    "Please provide the restaurant_id for placing the orders of that particular cart",
 	}
 
-	// validate the struct body
 	validate := validator.New()
 	err := validate.Struct(value)
 	if err != nil {

@@ -28,8 +28,6 @@ func ShowCoupon(c *gin.Context) {
 	}
 }
 func AddCoupon(c *gin.Context) {
-
-	// database.DB.AutoMigrate(&model.CouponInventory{})
 	var coupon, exist model.CouponInventory
 
 	if err := c.BindJSON(&coupon); err != nil {
@@ -95,7 +93,6 @@ func AddCoupon(c *gin.Context) {
 }
 func DeleteCoupon(c *gin.Context) {
 	code := c.Query("code")
-	// database.DB.AutoMigrate(&model.CouponUsage{})
 	if tx := database.DB.Model(&model.CouponUsage{}).Where("coupon_code=?", code).Delete(&model.CouponUsage{}); tx.Error != nil {
 		if tx.Error != gorm.ErrRecordNotFound {
 			c.JSON(http.StatusBadRequest, gin.H{

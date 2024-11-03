@@ -20,15 +20,22 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 	"github.com/golang-jwt/jwt/v4"
+	"github.com/joho/godotenv"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"gorm.io/gorm"
 )
 
+func init() {
+	if err := godotenv.Load(); err != nil {
+		log.Fatalf("Error loading .env file: %v", err)
+	}
+}
+
 var googleOauthConfig = &oauth2.Config{
 	RedirectURL:  "http://localhost:8080/auth/google/callback",
-	ClientID:     "561809634466-7789k623dstmaotg90edbil5r07iscl4.apps.googleusercontent.com",
-	ClientSecret: "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",
+	ClientID:     "",
+	ClientSecret: "",
 	Scopes:       []string{"https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/userinfo.profile"},
 	Endpoint:     google.Endpoint,
 }
@@ -39,7 +46,6 @@ var otpTimer time.Time
 var USER model.User
 
 func UserLoginEmail(c *gin.Context) {
-	// Get the email from the JSON request
 	var form struct{ model.UserEmailLoginRequest }
 	if err := c.BindJSON(&form); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -66,7 +72,6 @@ func UserLoginEmail(c *gin.Context) {
 		return
 	}
 
-	// Check if email exists in the admin table
 	var user model.User
 	if tx := database.DB.Where("email = ?", form.Email).First(&user); tx.Error != nil {
 		if errors.Is(tx.Error, gorm.ErrRecordNotFound) {
@@ -82,7 +87,6 @@ func UserLoginEmail(c *gin.Context) {
 		}
 	}
 
-	// Check if password matches the username
 	if err := utils.CheckPassword(user.HashedPassword, form.Password); err == nil {
 		if user.Blocked {
 			c.JSON(http.StatusUnauthorized, gin.H{
@@ -282,18 +286,15 @@ func UserAuthorization() gin.HandlerFunc {
 	}
 }
 
-// Step 1: Redirect to Google for authentication
 func HandleGoogleLogin(c *gin.Context) {
+	googleOauthConfig.ClientID = os.Getenv("ClientID")
+	googleOauthConfig.ClientSecret = os.Getenv("ClientSecret")
 	url := googleOauthConfig.AuthCodeURL(oauthStateString)
 	c.Redirect(http.StatusTemporaryRedirect, url)
 }
 
-// Step 2: Handle callback from Google
 func HandleGoogleCallback(c *gin.Context) {
-	fmt.Println("Starting to handle callback")
-	fmt.Printf("Callback URL Params: %v\n", c.Request.URL.Query())
 
-	//code := c.Query("code")
 	code := strings.TrimSpace(c.Query("code"))
 
 	if code == "" {
@@ -302,7 +303,6 @@ func HandleGoogleCallback(c *gin.Context) {
 		})
 		return
 	}
-	// Exchange code for token
 	token, err := googleOauthConfig.Exchange(context.Background(), code)
 	if err != nil {
 		log.Printf("Token Exchange Error: %v", err)
@@ -312,7 +312,6 @@ func HandleGoogleCallback(c *gin.Context) {
 		return
 	}
 
-	// Use access token to get user info
 	response, err := http.Get("https://www.googleapis.com/oauth2/v2/userinfo?access_token=" + token.AccessToken)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -323,7 +322,6 @@ func HandleGoogleCallback(c *gin.Context) {
 
 	defer response.Body.Close()
 
-	// Read response body
 	content, err := io.ReadAll(response.Body)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -331,8 +329,6 @@ func HandleGoogleCallback(c *gin.Context) {
 		})
 		return
 	}
-	fmt.Println("got response")
-	// Parse the Google user information
 	var googleUser model.GoogleResponse
 	err = json.Unmarshal(content, &googleUser)
 	if err != nil {
@@ -342,11 +338,10 @@ func HandleGoogleCallback(c *gin.Context) {
 		return
 	}
 
-	// Check if the user already exists in the database
 	var existingUser model.User
 	if err := database.DB.Where("email = ?", googleUser.Email).First(&existingUser).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			// Create a new user if not found
+
 			newUser := model.User{
 				Email:   googleUser.Email,
 				Name:    googleUser.Name,
@@ -358,9 +353,9 @@ func HandleGoogleCallback(c *gin.Context) {
 				})
 				return
 			}
-			existingUser = newUser // Assign the newly created user to existingUser for later token generation
+			existingUser = newUser
 		} else {
-			// Some other error occurred
+
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"message": "failed to fetch user from database",
 			})
@@ -368,7 +363,6 @@ func HandleGoogleCallback(c *gin.Context) {
 		}
 	}
 
-	// Check if the user is blocked or needs to login with another method
 	if existingUser.Blocked {
 		c.JSON(http.StatusUnauthorized, gin.H{
 			"message": "user is unauthorized to access",
@@ -376,7 +370,6 @@ func HandleGoogleCallback(c *gin.Context) {
 		return
 	}
 
-	// Generate JWT using userID
 	tokenstring, err := utils.GenerateToken(existingUser.Email)
 	if tokenstring == "" || err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{
@@ -385,7 +378,7 @@ func HandleGoogleCallback(c *gin.Context) {
 		return
 	}
 	USERTOKEN = tokenstring
-	// Return success response with JWT and user info
+
 	c.JSON(http.StatusOK, gin.H{
 		"status":  "success",
 		"message": "login successful",

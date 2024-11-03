@@ -32,7 +32,6 @@ func GetUserList(c *gin.Context) {
 func BlockUser(c *gin.Context) {
 	userid := c.Query("userId")
 
-	// var user model.User
 	if tx := database.DB.Model(&model.User{}).Where("id = ?", userid).Update("blocked", true); tx.Error == nil {
 		c.JSON(http.StatusOK, gin.H{
 			"message": "User is Blocked blocked",
@@ -55,10 +54,6 @@ func BlockUser(c *gin.Context) {
 }
 func UnblockUser(c *gin.Context) {
 	userid := c.Query("userId")
-
-	// var user model.User
-	// Assuming database.DB is your DB instance
-
 	if tx := database.DB.Model(&model.User{}).Where("id = ?", userid).Update("blocked", false); tx.Error == nil {
 		c.JSON(http.StatusOK, gin.H{
 			"message": "User is Unblocked blocked",

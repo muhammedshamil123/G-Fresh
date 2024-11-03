@@ -36,8 +36,6 @@ func AdminLogin(c *gin.Context) {
 		})
 		return
 	}
-
-	// Check if email exists in the admin table
 	var admin model.Admin
 	if tx := database.DB.Where("Username = ?", form.Username).First(&admin); tx.Error != nil {
 		if errors.Is(tx.Error, gorm.ErrRecordNotFound) {
@@ -52,8 +50,6 @@ func AdminLogin(c *gin.Context) {
 			return
 		}
 	}
-
-	// Check if password matches the username
 	if err := utils.CheckPassword(admin.Password, form.Password); err == nil {
 		token, err := utils.GenerateToken(admin.Username)
 		if err != nil {

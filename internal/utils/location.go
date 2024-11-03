@@ -4,12 +4,22 @@ import (
 	"encoding/json"
 	"fmt"
 	"g-fresh/internal/model"
+	"log"
 	"math"
 	"net/http"
+	"os"
+
+	"github.com/joho/godotenv"
 )
 
+func init() {
+	if err := godotenv.Load(); err != nil {
+		log.Fatalf("Error loading .env file: %v", err)
+	}
+}
+
 func CalculateDistance(userPincode string) uint {
-	api := "6b57bfc6a50448ce9ba966b0a86c3532"
+	api := os.Getenv("Api")
 	pincode := userPincode
 	pincodeAdmin := "682304"
 

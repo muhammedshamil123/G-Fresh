@@ -3,6 +3,7 @@ package utils
 import (
 	"crypto/rand"
 	"log"
+	"os"
 	"time"
 
 	"gopkg.in/gomail.v2"
@@ -37,11 +38,10 @@ func SendEmailOTP(to string, otp string) error {
 	mail.SetHeader("To", to)
 	mail.SetHeader("Subject", "Your OTP Code")
 	mail.SetBody("text/html", "Your OTP is: "+otp)
+	dialermail := os.Getenv("Mail")
 
-	// Set up SMTP server details (Gmail example)
-	dialer := gomail.NewDialer("smtp.gmail.com", 587, "gfreshproject2024@gmail.com", "kcdo akqz toit seha")
+	dialer := gomail.NewDialer("smtp.gmail.com", 587, "gfreshproject2024@gmail.com", dialermail)
 
-	// Send the email
 	err := dialer.DialAndSend(mail)
 	if err != nil {
 		log.Printf("Failed to send OTP email to %s: %v\n", to, err)

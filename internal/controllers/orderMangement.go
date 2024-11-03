@@ -11,6 +11,7 @@ import (
 	"g-fresh/internal/utils"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 	"time"
 
@@ -26,8 +27,6 @@ var o_id uint
 var FAILED map[uint]int
 
 func AddOrder(c *gin.Context) {
-
-	// database.DB.AutoMigrate(&model.Order{})
 
 	var order model.Order
 	var userId uint
@@ -720,7 +719,9 @@ func RenderRazorpay(c *gin.Context) {
 	c.HTML(http.StatusOK, "razorpay.html", nil)
 }
 func CreateOrder(c *gin.Context) {
-	client := razorpay.NewClient("rzp_test_Mg8qA7Z2ycbKOB", "XEPMrjfiphZjlQHlmlxmgWy6")
+	razorpayID := os.Getenv("RazorpayID")
+	razorpaySecret := os.Getenv("RazorpaySecret")
+	client := razorpay.NewClient(razorpayID, razorpaySecret)
 
 	var order model.Order
 	database.DB.Model(&model.Order{}).Where("order_id=?", orderID).First(&order)
@@ -758,12 +759,12 @@ func VerifyPayment(c *gin.Context) {
 		return
 	}
 	fmt.Println(paymentInfo)
-	secret := "XEPMrjfiphZjlQHlmlxmgWy6"
+	secret := os.Getenv("RazorpaySecret")
 	if !verifySignature(paymentInfo.OrderID, paymentInfo.PaymentID, paymentInfo.Signature, secret) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid payment signature"})
 		return
 	}
-	// database.DB.AutoMigrate(&model.Payment{})
+
 	amount := 0.0
 	database.DB.Model(&model.Order{}).Where("order_id =?", orderID).Select("total_amount").First(&amount)
 	payement := model.Payment{

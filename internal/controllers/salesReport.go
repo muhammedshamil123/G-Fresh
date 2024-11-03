@@ -20,11 +20,6 @@ import (
 func SalesReport(c *gin.Context) {
 	download := c.Query("download")
 	var input model.PlatformSalesReportInput
-
-	// if err := c.BindJSON(&input); err != nil {
-	// 	c.JSON(http.StatusBadRequest, gin.H{"errors": err.Error()})
-	// 	return
-	// }
 	input.StartDate = c.Query("start_date")
 	input.EndDate = c.Query("end_date")
 	input.Limit = c.Query("limit")
@@ -221,13 +216,8 @@ func RoundDecimalValue(value float64) float64 {
 }
 func GeneratePDFReport(result model.OrderCount, amount model.AmountInformation, start, end, PaymentStatus string) ([]byte, error) {
 	pdf := gofpdf.New("P", "mm", "Tabloid", "")
-	// Add a page
 	pdf.AddPage()
-
-	// Set font
 	pdf.SetFont("Arial", "B", 20)
-	// Title
-
 	pdf.SetTextColor(0, 0, 255)
 	pdf.Cell(100, 10, "")
 	pdf.Cell(40, 10, "Sales Report")
@@ -374,18 +364,15 @@ func GenerateChart(result model.OrderCount) (string, string, error) {
 				{Value: float64(result.TotalRETURNED), Label: "Returned"},
 			},
 		}
-
-		// Ensure the labels are displayed correctly
 		for i := range graph2.Bars {
 			graph2.Bars[i].Style = chart.Style{
 				Show:                true,
-				FontSize:            14,               // Adjusted font size
-				FontColor:           chart.ColorBlack, // Black text for better contrast
+				FontSize:            14,
+				FontColor:           chart.ColorBlack,
 				TextHorizontalAlign: chart.TextHorizontalAlignCenter,
 			}
 		}
 
-		// Save the chart as a PNG file
 		filePath2 = "sales_chart.png"
 		f2, err2 := os.Create(filePath2)
 		if err2 != nil {
@@ -414,7 +401,6 @@ func GenerateChart(result model.OrderCount) (string, string, error) {
 		},
 	}
 
-	// Save the chart as a PNG file
 	filePath := "sales_pie_chart.png"
 	f, err := os.Create(filePath)
 	if err != nil {
@@ -430,5 +416,3 @@ func GenerateChart(result model.OrderCount) (string, string, error) {
 	return filePath, filePath2, nil
 
 }
-
-//https://blog.devgenius.io/tutorial-creating-an-endpoint-to-download-files-using-golang-and-gin-gonic-27abbcf75940
