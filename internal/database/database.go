@@ -23,7 +23,12 @@ func ConnectToDB() {
 
 	user := os.Getenv("USER")
 	password := os.Getenv("PASSWORD")
-	dsn := "host=localhost user=" + user + " password=" + password + " dbname=gfresh port=5432 sslmode=disable TimeZone=Asia/Shanghai"
+	host := os.Getenv("HOST")
+	dbname := os.Getenv("DBNAME")
+	port := os.Getenv("PORT")
+	sslmode := os.Getenv("SSL")
+	timezone := os.Getenv("ZONE")
+	dsn := "host=" + host + " user=" + user + " password=" + password + " dbname=" + dbname + " port=" + port + " sslmode=" + sslmode + " TimeZone=" + timezone
 
 	DB, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
 
