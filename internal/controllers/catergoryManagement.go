@@ -78,7 +78,6 @@ func AddCategory(c *gin.Context) {
 		Description:     category.Description,
 		ImageURL:        category.ImageURL,
 		OfferPercentage: category.OfferPercentage,
-		Products:        nil,
 	}
 	result := database.DB.Create(&cat)
 	if result.Error != nil {

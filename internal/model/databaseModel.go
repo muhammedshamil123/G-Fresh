@@ -24,7 +24,7 @@ type User struct {
 	Blocked        bool    `gorm:"column:blocked;type:bool" json:"blocked"`
 	HashedPassword string  `gorm:"column:hashed_password;type:varchar(255)" validate:"required" json:"hashed_password"`
 	ReferralCode   string  `gorm:"column:referral_code" json:"referral_code"`
-	WalletAmount   float64 `gorm:"column:wallet_amount;type:double" json:"wallet_amount"`
+	WalletAmount   float64 `gorm:"column:wallet_amount;" json:"wallet_amount"`
 }
 
 type UserReferralHistory struct {
@@ -36,17 +36,16 @@ type UserReferralHistory struct {
 
 type Category struct {
 	gorm.Model
-	ID              uint      `gorm:"column:id" json:"id"`
-	Name            string    `validate:"required" json:"name"`
-	Description     string    `gorm:"column:description" validate:"required" json:"description"`
-	ImageURL        string    `gorm:"column:image_url" validate:"required" json:"image_url"`
-	Products        []Product `gorm:"foreignKey:CategoryID"`
-	OfferPercentage uint      `gorm:"column:offer_percentage" json:"offer_percentage"`
+	ID              uint   `gorm:"column:id" json:"id"`
+	Name            string `validate:"required" json:"name"`
+	Description     string `gorm:"column:description" validate:"required" json:"description"`
+	ImageURL        string `gorm:"column:image_url" validate:"required" json:"image_url"`
+	OfferPercentage uint   `gorm:"column:offer_percentage" json:"offer_percentage"`
 }
 type Product struct {
 	gorm.Model
 	ID            uint
-	CategoryID    uint    `gorm:"foreignKey:CategoryID" validate:"required" json:"category_id"`
+	CategoryID    uint    `validate:"required" json:"category_id"`
 	Name          string  `validate:"required" json:"name"`
 	Description   string  `gorm:"column:description" validate:"required" json:"description"`
 	ImageURL      string  `gorm:"column:image_url" validate:"required" json:"image_url"`

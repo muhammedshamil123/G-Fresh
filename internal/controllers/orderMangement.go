@@ -1028,6 +1028,9 @@ func GeneratePDFInvoice(order model.Order, orderItems []model.OrderItem, user mo
 		pdf.CellFormat(20, 10, fmt.Sprintf("%v", i+1), "1", 0, "C", false, 0, "")
 		var product model.Product
 		database.DB.Model(&model.Product{}).Where("id=?", val.ProductID).First(&product)
+		if val.OrderStatus == "CANCELED" {
+			product.Name += " (Cancelled)"
+		}
 		pdf.CellFormat(110, 10, fmt.Sprintf("%v", product.Name), "1", 0, "L", false, 0, "")
 		pdf.CellFormat(50, 10, fmt.Sprintf("%v", product.Price), "1", 0, "C", false, 0, "")
 		pdf.CellFormat(30, 10, fmt.Sprintf("%v", val.Quantity), "1", 0, "C", false, 0, "")
