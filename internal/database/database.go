@@ -2,6 +2,7 @@ package database
 
 import (
 	"fmt"
+	"g-fresh/internal/model"
 	"log"
 	"os"
 
@@ -39,7 +40,25 @@ func ConnectToDB() {
 	}
 }
 func AutoMigrate() {
-	err := DB.AutoMigrate()
+	err := DB.AutoMigrate(
+		&model.Admin{},
+		&model.User{},
+		&model.UserReferralHistory{},
+		&model.Category{},
+		&model.Product{},
+		&model.Address{},
+		&model.CartItems{},
+		&model.Order{},
+		&model.OrderItem{},
+		&model.ShippingAddress{},
+		&model.Rating{},
+		&model.Payment{},
+		&model.WishlistItems{},
+		&model.UserWalletHistory{},
+		&model.CouponInventory{},
+		&model.CouponUsage{},
+		&model.Request{},
+	)
 	if err != nil {
 		log.Fatal("failed to automigrates models")
 	}
