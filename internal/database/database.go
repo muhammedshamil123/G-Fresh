@@ -22,8 +22,8 @@ func init() {
 func ConnectToDB() {
 	var err error
 
-	user := os.Getenv("USER")
-	password := os.Getenv("PASSWORD")
+	user := os.Getenv("DB_USER")
+	password := os.Getenv("DB_PASSWORD")
 	host := os.Getenv("HOST")
 	dbname := os.Getenv("DBNAME")
 	port := os.Getenv("PORT")
