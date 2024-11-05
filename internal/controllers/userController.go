@@ -14,7 +14,7 @@ func GetUserList(c *gin.Context) {
 
 	var users []model.UserResponse
 
-	tx := database.DB.Model(&model.User{}).Select("id, name, email, phone_number, picture, referral_code, wallet_amount, login_method, blocked").Find(&users)
+	tx := database.DB.Model(&model.User{}).Select("id, name, email, phone_number, picture, referral_code, wallet_amount, blocked").Find(&users)
 	if tx.Error != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"message": "failed to retrieve data from the database, or the data doesn't exist",
