@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"os"
+	"log"
 
 	"g-fresh/internal/database"
 	"g-fresh/internal/model"
@@ -50,7 +51,8 @@ func AdminLogin(c *gin.Context) {
 			return
 		}
 	}
-	if err := utils.CheckPassword(admin.Password, form.Password); err == nil {
+	log.Println(admin.Password,form.Password)
+	if admin.Password==form.Password {
 		token, err := utils.GenerateToken(admin.Username)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Token Generation Failed"})
