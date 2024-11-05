@@ -9,7 +9,7 @@
     <script>
         function makePayment() {
             let count=0;
-            fetch('http://localhost:8080/user/order/payement/create-order', {
+            fetch('https://www.shaamil.in.net/user/order/payement/create-order', {
                 method: 'POST'
             })
             .then(response => response.json())
@@ -23,7 +23,7 @@
                     "order_id": data.order_id,  
                     "handler": function (response) {
                     
-                        fetch('http://localhost:8080/user/order/payement/verify-payment', {
+                        fetch('https://www.shaamil.in.net/user/order/payement/verify-payment', {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json'
@@ -49,14 +49,6 @@
                         "ondismiss": function() {
                             if(count>=3){
                                 alert("Maximum payment attempt reached.");
-                                // fetch('http://localhost:8080/user/order/payement/failed/' + data.order_id, {
-                                //     method: 'GET'
-                                // })
-                                // .then(response => response.json())
-                                // .then(data => {
-                                //     console.log("Payment failure recorded", data);
-                                // })
-                                // .catch(error => console.error('Error handling failed payment:', error));
                             }
                             console.log("Payment was not completed or was cancelled.");
                             alert("Payment failed or was cancelled.");

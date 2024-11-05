@@ -33,7 +33,7 @@ func init() {
 }
 
 var googleOauthConfig = &oauth2.Config{
-	RedirectURL:  "http://localhost:8080/auth/google/callback",
+	RedirectURL:  "https://www.shaamil.in.net/auth/google/callback",
 	ClientID:     "",
 	ClientSecret: "",
 	Scopes:       []string{"https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/userinfo.profile"},
