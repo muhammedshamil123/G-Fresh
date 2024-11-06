@@ -384,3 +384,11 @@ func HandleGoogleCallback(c *gin.Context) {
 		"message": "login successful",
 	})
 }
+
+func Logout(c *gin.Context) {
+	USERTOKEN = ""
+	c.JSON(http.StatusOK, gin.H{
+		"status":  "success",
+		"message": "User logged out successfully",
+	})
+}
